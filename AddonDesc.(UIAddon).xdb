@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<UIAddon>
+	<Name>ImportantCasts</Name>
+	<AutoStart>true</AutoStart>
+	<ScriptFileRefs>
+		<Item href="src/LibDnD.lua"/>
+		<Item href="settings.lua"/>
+		<Item href="src/mainscript.lua"/>
+	</ScriptFileRefs>
+	<MainFormId>Main</MainFormId>
+	<Forms>
+		<Item>
+			<Id>Main</Id>
+			<Form href="UI/MainForm.(WidgetForm).xdb"/>
+		</Item>
+	</Forms>
+	<visObjects href=""/>
+	<texts href=""/>
+	<textures href=""/>
+<addon_name>ImportantCasts</addon_name>
+<localizedNameFileRef href="info/name.txt"/>
+<localizedDescFileRef href="info/desc.txt"/>
+</UIAddon>

@@ -1,0 +1,490 @@
+local bar_template = mainForm:GetChildChecked( "Bar", false )
+local spell_template = mainForm:GetChildChecked( "IconSpell", false )
+
+local active_casts = {}
+local counter = 0
+
+local active_buffs = {}
+local active_mobs = {}
+local reaction_binds = {}
+local alt_reaction_binds = {}
+local Config = {}
+local DefaultConfig = {
+	clickable = false
+}
+
+function toWS( arg )
+	return userMods.ToWString(arg)
+end
+
+function fromWS( arg )
+	return userMods.FromWString(arg)
+end
+function PushToChat(message,size,color)
+	local fsize = size or 18
+	local textFormat = string.format('<header color="0x%s" fontsize="%s" outline="1" shadow="1"><rs class="class">%s</rs></header>',color, tostring(fsize),message)
+	local VT = common.CreateValuedText()
+	VT:SetFormat(toWS(textFormat))
+	local chatContainer = stateMainForm:GetChildUnchecked("ChatLog", false):GetChildUnchecked("Area", false):GetChildUnchecked("Panel02",false):GetChildUnchecked("Container", false)
+	chatContainer:PushFrontValuedText(VT)
+end
+
+function PushToChatSimple(message)
+	local textFormat = string.format("<html fontsize='16'><rs class='class'>%s</rs></html>",message)
+	local VT = common.CreateValuedText()
+	VT:SetFormat(toWS(textFormat))
+	VT:SetClassVal("class", "LogColorWhite")
+	local chatContainer = stateMainForm:GetChildUnchecked("ChatLog", false):GetChildUnchecked("Area", false):GetChildUnchecked("Panel02",false):GetChildUnchecked("Container", false)
+	chatContainer:PushFrontValuedText(VT)
+end
+
+
+function wtSetPlace(w, place )
+	local p = w:GetPlacementPlain()
+	for k, v in pairs(place) do	
+		p[k] = place[k] or v
+	end
+	w:SetPlacementPlain(p)
+end
+
+function CreateWG(desc, name, parent, show, place)
+	local n = mainForm:CreateWidgetByDesc( mainForm:GetChildChecked( desc, true ):GetWidgetDesc() )
+	if name then n:SetName( name ) end
+	if parent then parent:AddChild(n) end
+	if place then wtSetPlace( n, place ) end
+	n:Show( show == true )
+	return n
+end
+
+function addCast(castInfo)
+	local bar
+	bar = mainForm:CreateWidgetByDesc(bar_template:GetWidgetDesc())
+	counter = counter + 1
+	bar:SetName("CastBar"..tostring(counter))
+	bar:Show(#active_casts < (Settings.maxBars or 6))
+
+	table.insert(active_casts, bar)
+
+	local castBar
+	castBar = mainForm:CreateWidgetByDesc(mainForm:GetChildChecked( "CastBar", false ):GetWidgetDesc())
+	castBar:Show(true)
+	bar:AddChild(castBar)
+
+	local tempPos = bar_template:GetPlacementPlain()
+	tempPos.posY = tempPos.posY + 42*(#active_casts-1)
+	wtSetPlace(bar, tempPos)
+	wtSetPlace(castBar, {sizeX=Settings.width, sizeY=Settings.height})
+
+	if (castInfo.buffInfo) then
+		active_buffs[castInfo.buffInfo.buffId] = bar
+		local params = {}
+		params.objectId = castInfo.buffInfo.objectId
+		common.RegisterEventHandler(onBuffRemovedDetected, "EVENT_OBJECT_BUFF_REMOVED", params)
+
+		reaction_binds["CastBar"..tostring(counter)] = castInfo.buffInfo.objectId
+
+		if (castInfo.target == fromWS(object.GetName(avatar.GetId()))) then
+			castBar:SetBackgroundColor(Settings.myBuffColor or {r = 0.0, g = 0.8, b = 0.0, a = 0.5})
+		elseif (castInfo.alt_id and object.IsFriend(castInfo.buffInfo.objectId) and object.IsEnemy(castInfo.alt_id)) then
+			castBar:SetBackgroundColor(Settings.enemyBuffColor or {r = 0.8, g = 0, b = 0, a = 0.5})
+		else
+			castBar:SetBackgroundColor(Settings.otherBuffColor or {r = 0.0, g = 0.6, b = 0.6, a = 0.5})
+		end
+		wtSetPlace(castBar, { alignX=0, sizeX=Settings.width })
+		local castBarPlacementEnd = castBar:GetPlacementPlain()
+		castBarPlacementEnd.sizeX = 0
+		castBar:PlayResizeEffect(castBar:GetPlacementPlain(), castBarPlacementEnd, castInfo.duration, EA_MONOTONOUS_INCREASE)
+
+		if (not Settings.showBuffCaster) then
+			castInfo.target = ""
+		elseif castInfo.alt_id then
+			alt_reaction_binds["CastBar"..tostring(counter)] = castInfo.alt_id
+		end
+	else
+		if (castInfo.alt_id and castInfo.alt_id == avatar.GetId()) then
+			castBar:SetBackgroundColor(Settings.mobCastAtMeColor or {r = 0.8, g = 0, b = 0.0, a = 0.5})
+		else
+			castBar:SetBackgroundColor(Settings.mobCastColor or {r = 0.8, g = 0, b = 0.0, a = 0.5})
+		end
+		wtSetPlace(castBar, { alignX=0, sizeX=0 })
+		local castBarPlacementEnd = castBar:GetPlacementPlain()
+		castBarPlacementEnd.sizeX = Settings.width
+		castBar:PlayResizeEffect(castBar:GetPlacementPlain(), castBarPlacementEnd, castInfo.duration, EA_MONOTONOUS_INCREASE)
+
+		if (not Settings.showCastTarget) then
+			castInfo.target = ""
+		elseif castInfo.alt_id then
+			alt_reaction_binds["CastBar"..tostring(counter)] = castInfo.alt_id
+		end
+	end
+
+	if (castInfo.mob) then
+		active_mobs[castInfo.mob] = bar
+		reaction_binds["CastBar"..tostring(counter)] = castInfo.mob
+	end
+
+	if (castInfo.customColor) then
+		castBar:SetBackgroundColor(castInfo.customColor)
+	end
+
+	if (Settings.customColorsByName and Settings.customColorsByName[castInfo.name]) then
+		castBar:SetBackgroundColor(Settings.customColorsByName[castInfo.name])
+	end
+
+	local spell
+	spell = mainForm:CreateWidgetByDesc(spell_template:GetWidgetDesc())
+
+	local iconSize = Settings.height - 8
+
+	if (castInfo.texture) then
+		spell:SetBackgroundTexture(castInfo.texture)
+	end
+
+	bar:AddChild(spell)
+	spell:Show(true)
+
+	local castName = CreateWG("Label", "CastName", bar, true, { alignX = 0, sizeX=Settings.width-Settings.height, posX = iconSize + 6, highPosX = 0, alignY = 0, sizeY=20, posY=2, highPosY=0})
+	castName:SetFormat (userMods.ToWString("<html><body alignx='left' aligny='bottom' fontsize='16' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>" ))
+	castName:SetVal("name", castInfo.name)
+	castName:SetClassVal("class", "ColorWhite")
+
+	local offsetTargetText = 0
+	if (castInfo.target) then offsetTargetText = 115 end
+
+	local castUnit = CreateWG("Label", "CastUnit", bar, true, { alignX = 0, sizeX=Settings.width-iconSize-offsetTargetText, posX = iconSize + 6, highPosX = 0, alignY = 0, sizeY=20, posY=18, highPosY=0})
+	castUnit:SetFormat (userMods.ToWString("<html><body alignx='left' aligny='bottom' fontsize='13' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>" ))
+	castUnit:SetVal("name", castInfo.unit)
+	castUnit:SetClassVal("class", "ColorWhite")
+
+	local castTarget = CreateWG("Label", "CastTarget", bar, true, { alignX = 1, sizeX=120, posX = 0, highPosX = 2, alignY = 0, sizeY=20, posY=18, highPosY=0})
+	castTarget:SetFormat (userMods.ToWString("<html><body alignx='right' aligny='bottom' fontsize='12' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>" ))
+	castTarget:SetVal("name", castInfo.target)
+	castTarget:SetClassVal("class", "RelicCursed")
+
+	bar:AddChild(castName)
+	bar:AddChild(castUnit)
+	bar:AddChild(castTarget)
+
+	wtSetPlace(spell, { alignX = 0, posX=4, highPosX = 0, alignY = 0, posY = 4, highPosY = 0, sizeX=iconSize, sizeY=iconSize})
+
+	bar:SetTransparentInput( not Config.clickable )
+	castBar:SetTransparentInput( true )
+	spell:SetTransparentInput( true )
+end
+
+function onPlayEffectFinished(e)
+	if e.wtOwner then
+		if e.wtOwner:GetName() ~= "CastBar" then return end
+
+		destroyCastBar(e.wtOwner:GetParent())
+	end	
+end
+
+function destroyCastBar(widget)
+	widget:Show(false)
+
+	for k,v in pairs(active_casts) do
+		if (v:GetName() == widget:GetName()) then
+			table.remove(active_casts, k)
+			v:DestroyWidget()
+		end
+	end
+
+	for k,v in pairs(active_casts) do
+		local tempPos = bar_template:GetPlacementPlain()
+		tempPos.posY = tempPos.posY + 42*(k-1)
+		wtSetPlace(v, tempPos)
+		v:Show(k <= (Settings.maxBars or 6))
+	end
+end
+
+function onCast(p)
+	if (p.id and p.duration and p.name) then
+
+		if (Settings.ignoreCastNames and Settings.ignoreCastNames[fromWS(p.name)]) then return end
+		if (Settings.ignoreCastUnits and Settings.ignoreCastUnits[fromWS(object.GetName( p.id ))]) then return end
+
+		local targetId = unit.GetTarget( p.id )
+		local primaryTarget = unit.GetPrimaryTarget( p.id )
+
+		local castInfo = {
+			["name"] = fromWS(p.name),
+			["unit"] = fromWS(object.GetName( p.id )),
+			["duration"] = p.duration - p.progress,
+			["mob"] = p.id
+		}
+
+		if (targetId and targetId ~= p.id) then
+			castInfo.target = fromWS(object.GetName(targetId))
+			castInfo.alt_id = targetId
+		end
+		
+		if (p.spellId) then
+			castInfo.texture = spellLib.GetIcon(p.spellId)
+		end
+		addCast(castInfo)
+	end
+end
+
+function onBuff(p)
+	local show = false
+	local info = object.GetBuffInfo( p.buffId )
+	if (not info) then return end
+
+	local maskName = fromWS(p.buffName)
+
+	if (Settings.descriptionMasks) then
+		for k,v in pairs(Settings.descriptionMasks) do
+			if (userMods.FromWString(common.ExtractWStringFromValuedText(info.description)) == k) then
+				maskName = v
+				-- PushToChatSimple("Found mask: "..v)
+				goto endloop
+			end
+		end
+		::endloop::
+	end
+
+	if (Settings.addBuffs and Settings.addBuffs[maskName] == "all") then show = true
+	elseif (Settings.addBuffs and Settings.addBuffs[maskName]) then
+		local maskswitch = {
+			["enemy_mob"] = function()
+				if object.IsEnemy(p.objectId) and not unit.IsPlayer(p.objectId) then return true else return false end
+			end,
+			["enemy_player"] = function()
+				if object.IsEnemy(p.objectId) and unit.IsPlayer(p.objectId) then return true else return false end
+			end,
+			["friend_mob"] = function()
+				if object.IsFriend(p.objectId) and not unit.IsPlayer(p.objectId) then return true else return false end
+			end,
+			["friend_player"] = function()
+				if object.IsFriend(p.objectId) and unit.IsPlayer(p.objectId) then return true else return false end
+			end,
+			["enemy"] = function()
+				if object.IsEnemy(p.objectId) then return true else return false end
+			end,
+			["friend"] = function()
+				if object.IsFriend(p.objectId) then return true else return false end
+			end,
+			["mob"] = function()
+				if not unit.IsPlayer(p.objectId) then return true else return false end
+			end,
+			["player"] = function()
+				if unit.IsPlayer(p.objectId) then return true else return false end
+			end,
+			["raidgroup"] = function()
+				if raid.IsExist() then
+					if raid.IsPlayerInAvatarsRaid(object.GetName(p.objectId)) then return true end
+				elseif group.IsCreatureInGroup(avatar.GetId()) then
+					if group.IsCreatureInGroup(p.objectId) then return true end
+				elseif p.objectId == avatar.GetId() then return true
+				end
+				return false
+			end,
+			["self"] = function() return p.objectId == avatar.GetId() end
+		}
+
+		local filter = Settings.addBuffs[maskName]
+		local split_string = {}
+		for w in filter:gmatch("%S+") do table.insert(split_string, w) end
+
+		if (#split_string == 1) then
+			show = type(maskswitch[filter]) == "function" and maskswitch[filter]() or false
+		else
+			for i = 0, #split_string, 1 do
+				if (split_string[i]) then
+					show = show or (type(maskswitch[split_string[i]]) == "function" and maskswitch[split_string[i]]() or false)
+				end
+			end
+		end
+	end
+
+	if (show) then
+		local buffObject = p.objectId
+		local buffId = p.buffId
+
+		if (object.IsUnit(buffObject)) then
+			local info = object.GetBuffInfo( buffId )
+
+			if (info) then
+				local caster = ""
+				if (info.producer.casterId) then caster = fromWS(object.GetName(info.producer.casterId)) end
+
+				local castInfo = {
+					["name"] = fromWS(info.name),
+					["unit"] = fromWS(object.GetName( buffObject )),
+					["target"] = caster,
+					["duration"] = info.remainingMs,
+					["buffInfo"] = p,
+					["texture"] = info.texture,
+					["alt_id"] = info.producer.casterId
+				}
+				addCast(castInfo)
+			end
+		end
+	end
+end
+
+function onCastFinish(p)
+	local widget = active_mobs[p.id]
+	if (not widget) then return end
+
+	destroyCastBar(widget)
+    active_mobs[p.id.buffId] = nil
+end
+
+function onBuffRemovedDetected(removed_buff)
+	local widget = active_buffs[removed_buff.buffId]
+	if (not widget) then return end
+	destroyCastBar(widget)
+
+    active_buffs[removed_buff.buffId] = nil
+	local params = {}
+	params.objectId = removed_buff.objectId
+	common.UnRegisterEventHandler(onBuffRemovedDetected, "EVENT_OBJECT_BUFF_REMOVED", params)
+end
+
+function onSlash(p)
+	local m = userMods.FromWString(p.text)
+	local split_string = {}
+	for w in m:gmatch("%S+") do table.insert(split_string, w) end
+
+	if (split_string[1]:lower() == '/casttest' and split_string[2]) then
+		local castInfo = {
+			["name"] = "Какой-то каст",
+			["unit"] = "Юнит кастер",
+			["target"] = "Цель каста",
+			["duration"] = string.match(split_string[2], '%d[%d.,]*') * 1000,
+		}
+		addCast(castInfo)
+	end
+
+	if (split_string[1]:lower() == '/casttest2' and split_string[2]) then
+		local castInfo = {
+			["name"] = "Какой-то бафф",
+			["unit"] = "На ком",
+			["target"] = "Кто наложил",
+			["duration"] = string.match(split_string[2], '%d[%d.,]*') * 1000,
+			["customColor"] = {r = 0.0, g = 0.6, b = 0.6, a = 0.5}
+		}
+		addCast(castInfo)
+	end
+
+	if (split_string[1]:lower() == '/castdnd') then
+		ToggleDnd()
+	end
+
+	if (split_string[1]:lower() == '/castclick') then
+		ToggleClickable()
+	end
+end
+
+function ToggleDnd()
+	if ( bar_template:IsVisibleEx()) then
+		DnD.Enable(bar_template, false)
+		bar_template:Show(false)
+		bar_template:SetTransparentInput( true )
+		spell_template:SetTransparentInput( true )
+
+		for k,v in pairs(active_casts) do
+			local tempPos = bar_template:GetPlacementPlain()
+			tempPos.posY = tempPos.posY + 42*(k-1)
+			wtSetPlace(v, tempPos)
+			v:Show(k <= (Settings.maxBars or 6))
+		end
+
+		PushToChatSimple("[ImportantCasts]: Drag & Drop - Выкл.")
+	else
+		DnD.Enable(bar_template, true)
+		bar_template:Show(true)
+		bar_template:SetTransparentInput( false )
+		spell_template:SetTransparentInput( false )
+
+		for k,v in pairs(active_casts) do
+			v:Show(false)
+		end
+
+		PushToChatSimple("[ImportantCasts]: Drag & Drop - Вкл.")
+	end
+end
+
+function ToggleClickable()
+	Config.clickable = not Config.clickable
+	userMods.SetGlobalConfigSection("CastPlatesConfig", Config)
+
+	for k,v in pairs(active_casts) do
+		v:SetTransparentInput( not Config.clickable )
+	end
+
+	if (Config.clickable) then
+		PushToChatSimple("[ImportantCasts]: Кликабельность - Вкл.")
+	else
+		PushToChatSimple("[ImportantCasts]: Кликабельность - Выкл.")
+	end
+end
+
+function onButton(reaction)
+	local id = reaction_binds[reaction.widget:GetName()]
+
+	if (id and object.IsUnit(id)) then
+		avatar.SelectTarget(id)
+	end
+end
+
+function onButtonAlt(reaction)
+	if (Settings.ignoreRightClick) then return end
+	local id = alt_reaction_binds[reaction.widget:GetName()]
+
+	if (id and object.IsUnit(id)) then
+		avatar.SelectTarget(id)
+	end
+end
+
+function onCfgLeft()
+	if DnD:IsDragging() then
+		return
+	end
+
+	ToggleClickable()
+end
+
+function onCfgRight()
+	if DnD:IsDragging() then
+		return
+	end
+
+	ToggleDnd()
+end
+
+function Init()
+	Settings.height = 40
+	Config = userMods.GetGlobalConfigSection("CastPlatesConfig") or DefaultConfig
+
+	common.RegisterEventHandler(onPlayEffectFinished, 'EVENT_EFFECT_FINISHED')
+	common.RegisterEventHandler(onSlash, 'EVENT_UNKNOWN_SLASH_COMMAND')
+	common.RegisterEventHandler(onBuff, 'EVENT_OBJECT_BUFF_ADDED')
+	common.RegisterEventHandler(onCast, 'EVENT_MOB_ACTION_PROGRESS_START')
+	common.RegisterEventHandler(onCastFinish, "EVENT_MOB_ACTION_PROGRESS_FREEZE")
+	common.RegisterEventHandler(onCastFinish, "EVENT_MOB_ACTION_PROGRESS_FINISH")
+	common.RegisterReactionHandler(onButton, "OnBarClick")
+	common.RegisterReactionHandler(onButtonAlt, "OnBarAltClick")
+	common.RegisterReactionHandler(onCfgLeft, "ConfigLeftClick")
+	common.RegisterReactionHandler(onCfgRight, "ConfigRightClick")
+
+	bar_template:AddChild(spell_template)
+	spell_template:Show(true)
+	bar_template:SetTransparentInput( true )
+	spell_template:SetTransparentInput( true )
+
+	local iconSize = Settings.height - 8
+	wtSetPlace(bar_template, {sizeX=Settings.width, sizeY=Settings.height})
+	wtSetPlace(spell_template, { alignX = 0, posX=4, highPosX = 0, alignY = 0, posY = 4, highPosY = 0, sizeX=iconSize, sizeY=iconSize})
+
+	DnD.Init(bar_template, spell_template, true)
+	local cfgBtn = mainForm:GetChildChecked( "ConfigButton", false )
+	DnD.Init(cfgBtn,cfgBtn, true)
+	DnD.Enable(cfgBtn, true)
+end
+
+if (avatar.IsExist()) then Init()
+else common.RegisterEventHandler(Init, "EVENT_AVATAR_CREATED")	
+end
