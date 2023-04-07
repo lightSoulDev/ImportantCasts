@@ -3,11 +3,22 @@
 	<Name>ImportantCasts</Name>
 	<Priority>5000</Priority>
 	<Children>
+		<Item href="SettingsContent/Checkbox/CheckboxPanel.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
+		<Item href="SettingsContent/List/ListPanel.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
+		<Item href="SettingsContent/Input/InputPanel.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
+		<Item href="SettingsContent/Slider/SliderPanel.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
+		<Item href="SettingsContent/Button/ButtonPanel.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
+		<Item href="SettingsContent/ButtonInput/ButtonInputPanel.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
+		<Item href="SettingsContent/ItemSetting/ItemSettingPanel.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
+
 		<Item href="ConfigButton/ConfigButton.(WidgetButton).xdb#xpointer(/WidgetButton)" />
 		<Item href="CastBar/ButtonBar.(WidgetButton).xdb#xpointer(/WidgetButton)" />
 		<Item href="CastBar/CastBar.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
 		<Item href="CastBar/Label.(WidgetTextView).xdb#xpointer(/WidgetTextView)" />
 		<Item href="CastBar/IconSpell.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
+
+		<Item href="SettingsFrame/BackFrame/BackFrame.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
+		<Item href="SettingsFrame/SettingsMain.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
 	</Children>
 	<BackLayer href="" />
 	<FrontLayer href="" />
