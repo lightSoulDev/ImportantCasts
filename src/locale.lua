@@ -4,18 +4,6 @@ Global("LOCALES", {})
 -- fra
 -- tr
 
-function GetLocaleText(name)
-    local lang = LANG or "rus"
-
-    local l = LOCALES[lang]
-
-    if l then
-        return l[name] or name
-    else
-        return name
-    end
-end
-
 LOCALES = {
     ["rus"] = {
         ["DMG_FALL"] = "Падение",

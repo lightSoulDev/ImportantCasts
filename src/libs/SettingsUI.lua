@@ -344,6 +344,22 @@ local SettingsMainFrame = mainForm:GetChildChecked("SettingsMain", false)
 -- =-                  U T I L S                  -=
 -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
+function GetLocaleText(name)
+    if not LOCALES then
+        return name
+    end
+
+    local lang = LANG or "rus"
+
+    local l = LOCALES[lang]
+
+    if l then
+        return l[name] or name
+    else
+        return name
+    end
+end
+
 local function tabContainsGroup(tabs, tab, group)
     for i, t in pairs(tabs) do
         if (t and t.label == tab) then
@@ -1388,37 +1404,3 @@ function UI.render()
         end
     end
 end
-
--- UI.addGroup("ShowDD", "����������� �����", {
--- 	UI.createCheckBox("shorten", "��������� ����� �����", true),
--- 	UI.createList("maxBars", "���������� �������", {
--- 		2, 3, 4, 5, 6, 7, 8, 9, 10
--- 	}, 1),
--- 	UI.createList("colors", "�����", {
--- 		"ColorWhite", "ColorGreen", "ColorRed", "ColorBlue", "ColorOrange", "ColorYellow", "ColorBlack", "ColorMagenta", "ColorCian"
--- 	}, 1),
--- 	UI.createInput("testInput", "������ ������" , {
--- 		maxChars = 10,
--- 	}, 'test'),
--- 	UI.createInput("testInput2", "������ ������ NUM" , {
--- 		maxChars = 10,
--- 		filter = "_NUM"
--- 	}, 'test'),
--- 	UI.createInput("testInput3", "������ ������ INT" , {
--- 		maxChars = 10,
--- 		filter = "_INT"
--- 	}, '100'),
--- 	UI.createSlider("redColor", "������ ��������", {
--- 		stepsCount = 255,
--- 		width = 212,
--- 	}, 0),
--- 	UI.createButton("testButton", "������ ������", {
--- 		width = 128,
--- 		states = {
--- 			'����� 1',
--- 			'����� 2',
--- 			'����� 3',
--- 		},
--- 		callback = switchButtonState
--- 	}, 2)
--- })

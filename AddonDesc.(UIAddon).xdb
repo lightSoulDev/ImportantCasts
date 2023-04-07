@@ -3,12 +3,14 @@
 	<Name>ImportantCasts</Name>
 	<AutoStart>true</AutoStart>
 	<ScriptFileRefs>
-		<Item href="src/UI/locale.lua"/>
-		<Item href="src/LibDnD.lua"/>
-		<Item href="src/UI/utils.lua"/>
-		<Item href="src/UI/settingsUI.lua"/>
+		<Item href="src/locale.lua"/>
+
+		<Item href="src/libs/Logger.lua"/>
+		<Item href="src/libs/Utils.lua"/>
+		<Item href="src/libs/DnD.lua"/>
+		<Item href="src/libs/SettingsUI.lua"/>
+
 		<Item href="settings.lua"/>
-		<Item href="src/Logger.lua"/>
 		<Item href="src/mainscript.lua"/>
 	</ScriptFileRefs>
 	<MainFormId>Main</MainFormId>
