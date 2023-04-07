@@ -390,6 +390,32 @@ local function saveSettings()
     userMods.SetGlobalConfigSection("UI_SETTINGS", UI_SETTINGS)
 end
 
+local function getConfigIcon(e)
+    local icon
+    if (e.buffId) then
+        local info = object.GetBuffInfo(e.buffId) or avatar.GetBuffInfo(e.buffId)
+        if (info) then
+            if (info.texture) then
+                icon = info.texture
+            elseif (info.producer and info.producer.spellId) then
+                icon = spellLib.GetIcon(info.producer.spellId)
+            end
+        end
+    end
+    if (not icon and e.spellId) then
+        icon = spellLib.GetIcon(e.spellId)
+    end
+    if (not icon and e.abilityId) then
+        local info = avatar.GetAbilityInfo(e.abilityId)
+        if (info and info.texture) then icon = info.texture end
+    end
+    if (not icon and e.mapModifierId) then
+        local info = cartographer.GetMapModifierInfo(e.mapModifierId)
+        if (info and info.image) then icon = info.image end
+    end
+
+    return icon
+end
 -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 -- =- S E T T I N G S   C H A N G E   E V E N T S -=
 -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -426,6 +452,10 @@ local function onListButtonClick(params)
             end
 
             saveSettings()
+
+            if (CALLBACKS[params.sender] and type(CALLBACKS[params.sender]) == "function") then
+                CALLBACKS[params.sender](UI_SETTINGS[params.sender].value)
+            end
         end
     end
 end
@@ -435,10 +465,11 @@ local function onCheckboxClick(params)
         if (params.sender and UI_SETTINGS[params.sender]) then
             UI_SETTINGS[params.sender].value = not UI_SETTINGS[params.sender].value
             params.widget:SetVariant(ToVariant(UI_SETTINGS[params.sender].value))
-            if (CALLBACKS[params.sender]) then
+            saveSettings()
+
+            if (CALLBACKS[params.sender] and type(CALLBACKS[params.sender]) == "function") then
                 CALLBACKS[params.sender](UI_SETTINGS[params.sender].value)
             end
-            saveSettings()
         end
     end
 end
@@ -454,6 +485,10 @@ local function onInputChange(params)
 
         UI_SETTINGS[params.sender].value = tempVal
         saveSettings()
+
+        if (CALLBACKS[params.sender] and type(CALLBACKS[params.sender]) == "function") then
+            CALLBACKS[params.sender](UI_SETTINGS[params.sender].value)
+        end
     end
 
     params.widget:SetFocus(false)
@@ -481,6 +516,10 @@ local function onSliderChange(params)
 
         UI_SETTINGS[params.sender].value = value
         saveSettings()
+
+        if (CALLBACKS[params.sender] and type(CALLBACKS[params.sender]) == "function") then
+            CALLBACKS[params.sender](UI_SETTINGS[params.sender].value)
+        end
     end
 end
 
@@ -1009,32 +1048,9 @@ function UI.setTabs(tabs, default)
     end
 end
 
-local function getConfigIcon(e)
-    local icon
-    if (e.buffId) then
-        local info = object.GetBuffInfo(e.buffId) or avatar.GetBuffInfo(e.buffId)
-        if (info) then
-            if (info.texture) then
-                icon = info.texture
-            elseif (info.producer and info.producer.spellId) then
-                icon = spellLib.GetIcon(info.producer.spellId)
-            end
-        end
-    end
-    if (not icon and e.spellId) then
-        icon = spellLib.GetIcon(e.spellId)
-    end
-    if (not icon and e.abilityId) then
-        local info = avatar.GetAbilityInfo(e.abilityId)
-        if (info and info.texture) then icon = info.texture end
-    end
-    if (not icon and e.mapModifierId) then
-        local info = cartographer.GetMapModifierInfo(e.mapModifierId)
-        if (info and info.image) then icon = info.image end
-    end
-
-    return icon
-end
+-- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+-- =-                 R E N D E R                 -=
+-- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 function UI.render()
     local scrollCont = mainForm:GetChildChecked("OptionsContainer", true)
@@ -1244,7 +1260,7 @@ function UI.render()
                     UI_SETTINGS[id].callback = v.params.callback
 
                     -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-                    -- =-                 B U T T O N                 -=
+                    -- =-           B U T T O N   I N P U T           -=
                     -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
                 elseif (v.type == "ButtonInput") then
                     local panel = CreateWG("ButtonInputPanel", "ButtonInputPanel", groupFrame, true,
