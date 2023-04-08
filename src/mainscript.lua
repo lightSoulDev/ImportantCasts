@@ -29,7 +29,7 @@ local function destroyCastBar(widget)
 		local tempPos = bar_template:GetPlacementPlain()
 		tempPos.posY = tempPos.posY + 42 * (k - 1)
 		WtSetPlace(v, tempPos)
-		v:Show(k <= (Settings.maxBars or 6))
+		v:Show(k <= (tonumber(UI.get("Bars", "MaxBars")) or 6))
 	end
 end
 
@@ -49,7 +49,7 @@ local function addCast(castInfo)
 	bar = mainForm:CreateWidgetByDesc(bar_template:GetWidgetDesc())
 	counter = counter + 1
 	bar:SetName("CastBar" .. tostring(counter))
-	bar:Show(#active_casts < (Settings.maxBars or 6))
+	bar:Show(#active_casts < (tonumber(UI.get("Bars", "MaxBars")) or 6))
 
 	table.insert(active_casts, bar)
 
@@ -61,7 +61,8 @@ local function addCast(castInfo)
 	local tempPos = bar_template:GetPlacementPlain()
 	tempPos.posY = tempPos.posY + 42 * (#active_casts - 1)
 	WtSetPlace(bar, tempPos)
-	WtSetPlace(castBar, { sizeX = Settings.width, sizeY = Settings.height })
+	WtSetPlace(castBar,
+		{ sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300, sizeY = tonumber(UI.get("Bars", "BarsHeight")) or 40 })
 
 	if (castInfo.buffInfo) then
 		active_buffs[castInfo.buffInfo.buffId] = bar
@@ -72,36 +73,36 @@ local function addCast(castInfo)
 		reaction_binds["CastBar" .. tostring(counter)] = castInfo.buffInfo.objectId
 
 		if (castInfo.target == FromWS(object.GetName(avatar.GetId()))) then
-			castBar:SetBackgroundColor(Settings.myBuffColor or { r = 0.0, g = 0.8, b = 0.0, a = 0.5 })
+			castBar:SetBackgroundColor(UI.getGroupColor("MyBuffColor") or { r = 0.0, g = 0.8, b = 0.0, a = 0.5 })
 		elseif (castInfo.alt_id and object.IsFriend(castInfo.buffInfo.objectId) and object.IsEnemy(castInfo.alt_id)) then
-			castBar:SetBackgroundColor(Settings.enemyBuffColor or { r = 0.8, g = 0, b = 0, a = 0.5 })
+			castBar:SetBackgroundColor(UI.getGroupColor("EnemyBuffColor") or { r = 0.8, g = 0, b = 0, a = 0.5 })
 		else
-			castBar:SetBackgroundColor(Settings.otherBuffColor or { r = 0.0, g = 0.6, b = 0.6, a = 0.5 })
+			castBar:SetBackgroundColor(UI.getGroupColor("OtherBuffColor") or { r = 0.0, g = 0.6, b = 0.6, a = 0.5 })
 		end
-		WtSetPlace(castBar, { alignX = 0, sizeX = Settings.width })
+		WtSetPlace(castBar, { alignX = 0, sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300 })
 		local castBarPlacementEnd = castBar:GetPlacementPlain()
 		castBarPlacementEnd.sizeX = 0
 		castBar:PlayResizeEffect(castBar:GetPlacementPlain(), castBarPlacementEnd, castInfo.duration,
 			EA_MONOTONOUS_INCREASE)
 
-		if (not Settings.showBuffCaster) then
+		if (not UI.get("Bars", "ShowBuffCaster")) then
 			castInfo.target = ""
 		elseif castInfo.alt_id then
 			alt_reaction_binds["CastBar" .. tostring(counter)] = castInfo.alt_id
 		end
 	else
 		if (castInfo.alt_id and castInfo.alt_id == avatar.GetId()) then
-			castBar:SetBackgroundColor(Settings.mobCastAtMeColor or { r = 0.8, g = 0, b = 0.0, a = 0.5 })
+			castBar:SetBackgroundColor(UI.getGroupColor("MobCastAtMeColor") or { r = 0.8, g = 0, b = 0.0, a = 0.5 })
 		else
-			castBar:SetBackgroundColor(Settings.mobCastColor or { r = 0.8, g = 0, b = 0.0, a = 0.5 })
+			castBar:SetBackgroundColor(UI.getGroupColor("MobCastColor") or { r = 0.8, g = 0, b = 0.0, a = 0.5 })
 		end
 		WtSetPlace(castBar, { alignX = 0, sizeX = 0 })
 		local castBarPlacementEnd = castBar:GetPlacementPlain()
-		castBarPlacementEnd.sizeX = Settings.width
+		castBarPlacementEnd.sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300
 		castBar:PlayResizeEffect(castBar:GetPlacementPlain(), castBarPlacementEnd, castInfo.duration,
 			EA_MONOTONOUS_INCREASE)
 
-		if (not Settings.showCastTarget) then
+		if (not UI.get("Bars", "ShowCastTarget")) then
 			castInfo.target = ""
 		elseif castInfo.alt_id then
 			alt_reaction_binds["CastBar" .. tostring(counter)] = castInfo.alt_id
@@ -117,14 +118,16 @@ local function addCast(castInfo)
 		castBar:SetBackgroundColor(castInfo.customColor)
 	end
 
-	if (Settings.customColorsByName and Settings.customColorsByName[castInfo.name]) then
-		castBar:SetBackgroundColor(Settings.customColorsByName[castInfo.name])
-	end
+	-- if (Settings.customColorsByName and Settings.customColorsByName[castInfo.name]) then
+	-- 	castBar:SetBackgroundColor(Settings.customColorsByName[castInfo.name])
+	-- end
 
 	local spell
 	spell = mainForm:CreateWidgetByDesc(spell_template:GetWidgetDesc())
+	WtSetPlace(spell,
+	{ sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300, sizeY = tonumber(UI.get("Bars", "BarsHeight")) or 40 })
 
-	local iconSize = Settings.height - 8
+	local iconSize = (tonumber(UI.get("Bars", "BarsHeight")) or 40) - 8
 
 	if (castInfo.texture) then
 		spell:SetBackgroundTexture(castInfo.texture)
@@ -136,7 +139,7 @@ local function addCast(castInfo)
 	local castName = CreateWG("Label", "CastName", bar, true,
 		{
 			alignX = 0,
-			sizeX = Settings.width - Settings.height,
+			sizeX = (tonumber(UI.get("Bars", "BarsWidth")) or 300) - (tonumber(UI.get("Bars", "BarsHeight")) or 40),
 			posX = iconSize + 6,
 			highPosX = 0,
 			alignY = 0,
@@ -155,7 +158,7 @@ local function addCast(castInfo)
 	local castUnit = CreateWG("Label", "CastUnit", bar, true,
 		{
 			alignX = 0,
-			sizeX = Settings.width - iconSize - offsetTargetText,
+			sizeX = (tonumber(UI.get("Bars", "BarsWidth")) or 300) - iconSize - offsetTargetText,
 			posX = iconSize + 6,
 			highPosX = 0,
 			alignY = 0,
@@ -197,8 +200,21 @@ end
 
 local function onCast(p)
 	if (p.id and p.duration and p.name) then
-		if (Settings.ignoreCastNames and Settings.ignoreCastNames[FromWS(p.name)]) then return end
-		if (Settings.ignoreCastUnits and Settings.ignoreCastUnits[FromWS(object.GetName(p.id))]) then return end
+		local CastsMode = UI.get("CastsSettings", "Mode")
+		local castItem = UI.getItem("CastsSettings", FromWS(p.name))
+		if (CastsMode == "HideOnly") then
+			if (castItem and castItem.enabled) then return end
+		elseif (CastsMode == "ShowOnly") then
+			if (not castItem or not castItem.enabled) then return end
+		end
+
+		local UnitsMode = UI.get("UnitsSettings", "Mode")
+		local unitItem = UI.getItem("UnitsSettings", FromWS(object.GetName(p.id)))
+		if (UnitsMode == "HideOnly") then
+			if (unitItem and unitItem.enabled) then return end
+		elseif (UnitsMode == "ShowOnly") then
+			if (not unitItem or not unitItem.enabled) then return end
+		end
 
 		local targetId = unit.GetTarget(p.id)
 		local primaryTarget = unit.GetPrimaryTarget(p.id)
@@ -241,61 +257,37 @@ local function onBuff(p)
 		::endloop::
 	end
 
-	if (Settings.addBuffs and Settings.addBuffs[maskName] == "all") then
-		show = true
-	elseif (Settings.addBuffs and Settings.addBuffs[maskName]) then
-		local maskswitch = {
-			["enemy_mob"] = function()
-				if object.IsEnemy(p.objectId) and not unit.IsPlayer(p.objectId) then return true else return false end
-			end,
-			["enemy_player"] = function()
-				if object.IsEnemy(p.objectId) and unit.IsPlayer(p.objectId) then return true else return false end
-			end,
-			["friend_mob"] = function()
-				if object.IsFriend(p.objectId) and not unit.IsPlayer(p.objectId) then return true else return false end
-			end,
-			["friend_player"] = function()
-				if object.IsFriend(p.objectId) and unit.IsPlayer(p.objectId) then return true else return false end
-			end,
-			["enemy"] = function()
-				if object.IsEnemy(p.objectId) then return true else return false end
-			end,
-			["friend"] = function()
-				if object.IsFriend(p.objectId) then return true else return false end
-			end,
-			["mob"] = function()
-				if not unit.IsPlayer(p.objectId) then return true else return false end
-			end,
-			["player"] = function()
-				if unit.IsPlayer(p.objectId) then return true else return false end
-			end,
-			["raidgroup"] = function()
-				if raid.IsExist() then
-					if raid.IsPlayerInAvatarsRaid(object.GetName(p.objectId)) then return true end
-				elseif group.IsCreatureInGroup(avatar.GetId()) then
-					if group.IsCreatureInGroup(p.objectId) then return true end
-				elseif p.objectId == avatar.GetId() then
-					return true
-				end
-				return false
-			end,
-			["self"] = function() return p.objectId == avatar.GetId() end
-		}
+	local mode = UI.get("BuffsSettings", "Mode")
+	if (mode ~= "ShowOnly") then return end
+	local buffSettings = UI.getItem("BuffsSettings", maskName)
+	if (buffSettings == nil or not buffSettings.enabled) then return end
 
-		local filter = Settings.addBuffs[maskName]
-		local split_string = {}
-		for w in filter:gmatch("%S+") do table.insert(split_string, w) end
-
-		if (#split_string == 1) then
-			show = type(maskswitch[filter]) == "function" and maskswitch[filter]() or false
-		else
-			for i = 0, #split_string, 1 do
-				if (split_string[i]) then
-					show = show or
-						(type(maskswitch[split_string[i]]) == "function" and maskswitch[split_string[i]]() or false)
-				end
-			end
+	if (buffSettings["enemyMob"]) then
+		show = show or (object.IsEnemy(p.objectId) and not unit.IsPlayer(p.objectId))
+	end
+	if (buffSettings["enemyPlayer"]) then
+		show = show or (not object.IsFriend(p.objectId) and not unit.IsPlayer(p.objectId))
+	end
+	if (buffSettings["friendMob"]) then
+		show = show or (object.IsFriend(p.objectId) and not unit.IsPlayer(p.objectId))
+	end
+	if (buffSettings["friendPlayer"]) then
+		show = show or (object.IsFriend(p.objectId) and unit.IsPlayer(p.objectId))
+	end
+	if (buffSettings["self"]) then
+		show = show or (p.objectId == avatar.GetId())
+	end
+	if (buffSettings["raidgroup"]) then
+		local tmp = false
+		if raid.IsExist() then
+			if raid.IsPlayerInAvatarsRaid(object.GetName(p.objectId)) then tmp = true end
+		elseif group.IsCreatureInGroup(avatar.GetId()) then
+			if group.IsCreatureInGroup(p.objectId) then tmp = true end
+		elseif p.objectId == avatar.GetId() then
+			tmp = true
 		end
+
+		show = show or tmp
 	end
 
 	if (show) then
@@ -430,7 +422,7 @@ function ToggleDnd()
 			local tempPos = bar_template:GetPlacementPlain()
 			tempPos.posY = tempPos.posY + 42 * (k - 1)
 			WtSetPlace(v, tempPos)
-			v:Show(k <= (Settings.maxBars or 6))
+			v:Show(k <= (tonumber(UI.get("Bars", "MaxBars")) or 6))
 		end
 
 		Log("Drag & Drop - Off.")
@@ -457,7 +449,7 @@ local function onButton(reaction)
 end
 
 local function onButtonAlt(reaction)
-	if (Settings.ignoreRightClick) then return end
+	if (not UI.get("Interaction", "EnableRightClick")) then return end
 	local id = alt_reaction_binds[reaction.widget:GetName()]
 
 	if (id and object.IsUnit(id)) then
@@ -644,6 +636,7 @@ local function setupUI()
 			maxChars = 4,
 			filter = "_INT"
 		}, '300'),
+		UI.createList("BarsHeight", range(32, 64, 4), 3, false),
 		UI.createCheckBox("ShowBuffCaster", true),
 		UI.createCheckBox("ShowCastTarget", true),
 	})
@@ -692,12 +685,10 @@ local function setupUI()
 	UI.addGroup("BuffsSettings", {
 		UI.createList("Mode", {
 			"Disable",
-			"HideOnly",
 			"ShowOnly",
-		}, 3, true),
+		}, 2, true),
 		UI.withCustomClass(UI.createListLabel("Mode", {
 			"BuffsModeDisableInfo",
-			"BuffsModeHideOnlyInfo",
 			"BuffsModeShowOnlyInfo",
 		}), "tip_white"),
 		UI.withCondition(UI.withCustomClass(
@@ -721,15 +712,13 @@ local function setupUI()
 
 	UI.addGroup("CastsSettings", {
 		UI.createList("Mode", {
-			"Disable",
 			"HideOnly",
 			"ShowOnly",
-		}, 2, true),
-		UI.createListLabel("Mode", {
-			"CastsModeDisableInfo",
+		}, 1, true),
+		UI.withCustomClass(UI.createListLabel("Mode", {
 			"CastsModeHideOnlyInfo",
 			"CastsModeShowOnlyInfo",
-		}),
+		}), "tip_white"),
 		UI.createButtonInput("AddCast", {
 			width = 90,
 			states = {
@@ -741,12 +730,10 @@ local function setupUI()
 
 	UI.addGroup("UnitsSettings", {
 		UI.createList("Mode", {
-			"Disable",
 			"HideOnly",
 			"ShowOnly",
-		}, 2, true),
+		}, 1, true),
 		UI.withCustomClass(UI.createListLabel("Mode", {
-			"UnitsModeDisableInfo",
 			"UnitsModeHideOnlyInfo",
 			"UnitsModeShowOnlyInfo",
 		}), "tip_white"),
@@ -834,7 +821,6 @@ end
 function Init()
 	LOGGER.Init()
 
-	Settings.height = 40
 	Config = userMods.GetGlobalConfigSection("CastPlatesConfig") or DefaultConfig
 
 	common.RegisterEventHandler(onPlayEffectFinished, 'EVENT_EFFECT_FINISHED')
@@ -864,8 +850,9 @@ function Init()
 	bar_template:SetTransparentInput(true)
 	spell_template:SetTransparentInput(true)
 
-	local iconSize = Settings.height - 8
-	WtSetPlace(bar_template, { sizeX = Settings.width, sizeY = Settings.height })
+	local iconSize = (tonumber(UI.get("Bars", "BarsHeight")) or 40) - 8
+	WtSetPlace(bar_template,
+		{ sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300, sizeY = tonumber(UI.get("Bars", "BarsHeight")) or 40 })
 	WtSetPlace(spell_template,
 		{ alignX = 0, posX = 4, highPosX = 0, alignY = 0, posY = 4, highPosY = 0, sizeX = iconSize, sizeY = iconSize })
 
