@@ -10,7 +10,7 @@ local reaction_binds = {}
 local alt_reaction_binds = {}
 local Config = {}
 local DefaultConfig = {
-	clickable = false
+	firstLaunch = true,
 }
 
 local TRACKED_UNITS = {}
@@ -27,7 +27,8 @@ local function destroyCastBar(widget)
 
 	for k, v in pairs(active_casts) do
 		local tempPos = bar_template:GetPlacementPlain()
-		tempPos.posY = tempPos.posY + 42 * (k - 1)
+		tempPos.posY = tempPos.posY + ((tonumber(UI.get("Bars", "BarsHeight")) or 40) + 2) * (k - 1)
+		tempPos.sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300
 		WtSetPlace(v, tempPos)
 		v:Show(k <= (tonumber(UI.get("Bars", "MaxBars")) or 6))
 	end
@@ -58,11 +59,14 @@ local function addCast(castInfo)
 	castBar:Show(true)
 	bar:AddChild(castBar)
 
+	local settingHeight = tonumber(UI.get("Bars", "BarsHeight")) or 40
+	local settingWidth = tonumber(UI.get("Bars", "BarsWidth")) or 300
+
 	local tempPos = bar_template:GetPlacementPlain()
-	tempPos.posY = tempPos.posY + 42 * (#active_casts - 1)
+	tempPos.posY = tempPos.posY + (settingHeight + 2) * (#active_casts - 1)
 	WtSetPlace(bar, tempPos)
 	WtSetPlace(castBar,
-		{ sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300, sizeY = tonumber(UI.get("Bars", "BarsHeight")) or 40 })
+		{ sizeX = settingWidth, sizeY = settingHeight })
 
 	if (castInfo.buffInfo) then
 		active_buffs[castInfo.buffInfo.buffId] = bar
@@ -79,7 +83,7 @@ local function addCast(castInfo)
 		else
 			castBar:SetBackgroundColor(UI.getGroupColor("OtherBuffColor") or { r = 0.0, g = 0.6, b = 0.6, a = 0.5 })
 		end
-		WtSetPlace(castBar, { alignX = 0, sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300 })
+		WtSetPlace(castBar, { alignX = 0, sizeX = settingWidth })
 		local castBarPlacementEnd = castBar:GetPlacementPlain()
 		castBarPlacementEnd.sizeX = 0
 		castBar:PlayResizeEffect(castBar:GetPlacementPlain(), castBarPlacementEnd, castInfo.duration,
@@ -98,7 +102,7 @@ local function addCast(castInfo)
 		end
 		WtSetPlace(castBar, { alignX = 0, sizeX = 0 })
 		local castBarPlacementEnd = castBar:GetPlacementPlain()
-		castBarPlacementEnd.sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300
+		castBarPlacementEnd.sizeX = settingWidth
 		castBar:PlayResizeEffect(castBar:GetPlacementPlain(), castBarPlacementEnd, castInfo.duration,
 			EA_MONOTONOUS_INCREASE)
 
@@ -125,9 +129,12 @@ local function addCast(castInfo)
 	local spell
 	spell = mainForm:CreateWidgetByDesc(spell_template:GetWidgetDesc())
 	WtSetPlace(spell,
-	{ sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300, sizeY = tonumber(UI.get("Bars", "BarsHeight")) or 40 })
+		{ sizeX = settingWidth, sizeY = settingHeight })
 
-	local iconSize = (tonumber(UI.get("Bars", "BarsHeight")) or 40) - 8
+	WtSetPlace(bar,
+		{ sizeX = settingWidth, sizeY = settingHeight })
+
+	local iconSize = settingHeight - 8
 
 	if (castInfo.texture) then
 		spell:SetBackgroundTexture(castInfo.texture)
@@ -139,7 +146,7 @@ local function addCast(castInfo)
 	local castName = CreateWG("Label", "CastName", bar, true,
 		{
 			alignX = 0,
-			sizeX = (tonumber(UI.get("Bars", "BarsWidth")) or 300) - (tonumber(UI.get("Bars", "BarsHeight")) or 40),
+			sizeX = settingWidth - settingHeight,
 			posX = iconSize + 6,
 			highPosX = 0,
 			alignY = 0,
@@ -161,10 +168,10 @@ local function addCast(castInfo)
 			sizeX = (tonumber(UI.get("Bars", "BarsWidth")) or 300) - iconSize - offsetTargetText,
 			posX = iconSize + 6,
 			highPosX = 0,
-			alignY = 0,
+			alignY = 1,
 			sizeY = 20,
-			posY = 18,
-			highPosY = 0
+			posY = 0,
+			highPosY = 2
 		})
 	castUnit:SetFormat(userMods.ToWString(
 		"<html><body alignx='left' aligny='bottom' fontsize='13' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>"))
@@ -185,7 +192,7 @@ local function addCast(castInfo)
 	WtSetPlace(spell,
 		{ alignX = 0, posX = 4, highPosX = 0, alignY = 0, posY = 4, highPosY = 0, sizeX = iconSize, sizeY = iconSize })
 
-	bar:SetTransparentInput(not Config.clickable)
+	bar:SetTransparentInput(not (UI.get("Interaction", "IsClickable") or false))
 	castBar:SetTransparentInput(true)
 	spell:SetTransparentInput(true)
 end
@@ -420,7 +427,7 @@ function ToggleDnd()
 
 		for k, v in pairs(active_casts) do
 			local tempPos = bar_template:GetPlacementPlain()
-			tempPos.posY = tempPos.posY + 42 * (k - 1)
+			tempPos.posY = tempPos.posY + ((tonumber(UI.get("Bars", "BarsHeight")) or 40) + 2) * (k - 1)
 			WtSetPlace(v, tempPos)
 			v:Show(k <= (tonumber(UI.get("Bars", "MaxBars")) or 6))
 		end
@@ -474,14 +481,11 @@ local function onCfgRight()
 end
 
 local function isClickableCallback(value)
-	Config.clickable = value
-	userMods.SetGlobalConfigSection("CastPlatesConfig", Config)
-
 	for k, v in pairs(active_casts) do
-		v:SetTransparentInput(not Config.clickable)
+		v:SetTransparentInput(not value)
 	end
 
-	if (Config.clickable) then
+	if (value) then
 		Log("Clickable - On.")
 	else
 		Log("Clickable - Off.")
@@ -636,7 +640,7 @@ local function setupUI()
 			maxChars = 4,
 			filter = "_INT"
 		}, '300'),
-		UI.createList("BarsHeight", range(32, 64, 4), 3, false),
+		UI.createList("BarsHeight", { 40 }, 1, false),
 		UI.createCheckBox("ShowBuffCaster", true),
 		UI.createCheckBox("ShowCastTarget", true),
 	})
@@ -863,6 +867,13 @@ function Init()
 
 	setupUI()
 	getUnits()
+
+	if (Config.firstLaunch) then
+		Config.firstLaunch = false
+		addRecommendedBuffs()
+		addRecommendedUnits()
+		userMods.SetGlobalConfigSection("CastPlatesConfig", Config)
+	end
 end
 
 if (avatar.IsExist()) then
