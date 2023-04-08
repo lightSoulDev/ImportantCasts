@@ -35,6 +35,7 @@
         "sortedKeys",
         "contains",
         "getGroupTexture",
-        "shallowcopy"
+        "shallowcopy",
+        "ET_RESIZE"
     ]
 }

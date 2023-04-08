@@ -1,10 +1,11 @@
 local bar_template = mainForm:GetChildChecked("Bar", false)
 local spell_template = mainForm:GetChildChecked("IconSpell", false)
 
+local active_buffs = {}
+local tracking_objects_buffs = {}
+
 local active_casts = {}
 local counter = 0
-
-local active_buffs = {}
 local active_mobs = {}
 local reaction_binds = {}
 local alt_reaction_binds = {}
@@ -16,8 +17,6 @@ local DefaultConfig = {
 local TRACKED_UNITS = {}
 
 local function destroyCastBar(widget)
-	widget:Show(false)
-
 	for k, v in pairs(active_casts) do
 		if (v:GetName() == widget:GetName()) then
 			table.remove(active_casts, k)
@@ -34,15 +33,30 @@ local function destroyCastBar(widget)
 	end
 end
 
-local function onBuffRemovedDetected(removed_buff)
-	local widget = active_buffs[removed_buff.buffId]
-	if (not widget) then return end
-	destroyCastBar(widget)
+local function removeActiveBuffById(buffId)
+	local info = active_buffs[buffId]
+	if (info == nil) then return false end
+	if (info.castBar ~= nil) then info.castBar:FinishResizeEffect() end
+	if (info.bar ~= nil) then
+		destroyCastBar(info.bar)
+		active_buffs[buffId] = nil
+		return true
+	end
 
-	active_buffs[removed_buff.buffId] = nil
-	local params = {}
-	params.objectId = removed_buff.objectId
-	common.UnRegisterEventHandler(onBuffRemovedDetected, "EVENT_OBJECT_BUFF_REMOVED", params)
+	return false
+end
+
+local function onBuffRemovedDetected(removed_buff)
+	removeActiveBuffById(removed_buff.buffId)
+end
+
+local function onPlayEffectFinished(e)
+	if e.wtOwner then
+		if e.wtOwner:GetName() ~= "CastBar" then return end
+		local bar = e.wtOwner:GetParent()
+		e.wtOwner:FinishResizeEffect()
+		if (bar ~= nil) then destroyCastBar(bar) end
+	end
 end
 
 local function addCast(castInfo)
@@ -69,16 +83,34 @@ local function addCast(castInfo)
 		{ sizeX = settingWidth, sizeY = settingHeight })
 
 	if (castInfo.buffInfo) then
-		active_buffs[castInfo.buffInfo.buffId] = bar
-		local params = {}
-		params.objectId = castInfo.buffInfo.objectId
-		common.RegisterEventHandler(onBuffRemovedDetected, "EVENT_OBJECT_BUFF_REMOVED", params)
+		local objectId = castInfo.buffInfo.objectId
+		local buffId = castInfo.buffInfo.buffId
 
-		reaction_binds["CastBar" .. tostring(counter)] = castInfo.buffInfo.objectId
+		active_buffs[buffId] = {
+			bar = bar,
+			castBar = castBar,
+			objectId = objectId,
+		}
+
+		if (not tracking_objects_buffs[objectId]) then
+			tracking_objects_buffs[objectId] = {
+				buffs = {
+					buffId
+				}
+			}
+
+			common.RegisterEventHandler(onBuffRemovedDetected, "EVENT_OBJECT_BUFF_REMOVED", {
+				objectId = objectId
+			})
+		else
+			table.insert(tracking_objects_buffs[objectId].buffs, buffId)
+		end
+
+		reaction_binds["CastBar" .. tostring(counter)] = objectId
 
 		if (castInfo.target == FromWS(object.GetName(avatar.GetId()))) then
 			castBar:SetBackgroundColor(UI.getGroupColor("MyBuffColor") or { r = 0.0, g = 0.8, b = 0.0, a = 0.5 })
-		elseif (castInfo.alt_id and object.IsFriend(castInfo.buffInfo.objectId) and object.IsEnemy(castInfo.alt_id)) then
+		elseif (castInfo.alt_id and object.IsFriend(objectId) and object.IsEnemy(castInfo.alt_id)) then
 			castBar:SetBackgroundColor(UI.getGroupColor("EnemyBuffColor") or { r = 0.8, g = 0, b = 0, a = 0.5 })
 		else
 			castBar:SetBackgroundColor(UI.getGroupColor("OtherBuffColor") or { r = 0.0, g = 0.6, b = 0.6, a = 0.5 })
@@ -195,14 +227,6 @@ local function addCast(castInfo)
 	bar:SetTransparentInput(not (UI.get("Interaction", "IsClickable") or false))
 	castBar:SetTransparentInput(true)
 	spell:SetTransparentInput(true)
-end
-
-local function onPlayEffectFinished(e)
-	if e.wtOwner then
-		if e.wtOwner:GetName() ~= "CastBar" then return end
-
-		destroyCastBar(e.wtOwner:GetParent())
-	end
 end
 
 local function onCast(p)
@@ -327,24 +351,15 @@ local function onBuff(p)
 	end
 end
 
-local function onUnitDeadChanged(p)
-	-- test
-	-- if (object.IsDead(p.unitId)) then
-	-- 	for k, v in pairs(TRACKED_UNITS) do
-	-- 		if (v == p.unitId) then
-	-- 			table.remove(TRACKED_UNITS, k)
-	-- 		end
-	-- 	end
-	-- end
-end
-
 local function getUnits()
 	local units = avatar.GetUnitList()
 	for _, id in ipairs(units) do
-		table.insert(TRACKED_UNITS, id)
-		common.RegisterEventHandler(onBuff, "EVENT_OBJECT_BUFF_ADDED", {
-			objectId = id
-		})
+		if (not contains(TRACKED_UNITS, id)) then
+			table.insert(TRACKED_UNITS, id)
+			common.RegisterEventHandler(onBuff, "EVENT_OBJECT_BUFF_ADDED", {
+				objectId = id
+			})
+		end
 	end
 end
 
@@ -367,12 +382,24 @@ local function onUnitsChanged(p)
 		local id = despawned[i]
 		if (id ~= nil) then
 			-- Log("despawned " .. tostring(id) .. " " .. FromWS(object.GetName(id)))
-			common.UnRegisterEventHandler(onBuff, "EVENT_OBJECT_BUFF_ADDED", {
-				objectId = id
-			})
+			if (tracking_objects_buffs[id] ~= nil) then
+				if (tracking_objects_buffs[id].buffs ~= nil) then
+					for k, v in pairs(tracking_objects_buffs[id].buffs) do
+						removeActiveBuffById(v)
+					end
+				end
+				tracking_objects_buffs[id] = nil
+
+				common.UnRegisterEventHandler(onBuffRemovedDetected, "EVENT_OBJECT_BUFF_REMOVED", {
+					objectId = id
+				})
+			end
 			for k, v in pairs(TRACKED_UNITS) do
 				if (v == id) then
 					table.remove(TRACKED_UNITS, k)
+					common.UnRegisterEventHandler(onBuff, "EVENT_OBJECT_BUFF_ADDED", {
+						objectId = id
+					})
 				end
 			end
 		end
@@ -832,10 +859,7 @@ function Init()
 	-- common.RegisterEventHandler(onBuff, 'EVENT_OBJECT_BUFF_ADDED')
 	-- common.RegisterEventHandler(onBuffsChanged, 'EVENT_OBJECT_BUFFS_CHANGED')
 	common.RegisterEventHandler(onUnitsChanged, 'EVENT_UNITS_CHANGED')
-	common.RegisterEventHandler(onUnitDeadChanged, 'EVENT_UNIT_DEAD_CHANGED')
-
-
-
+	-- common.RegisterEventHandler(onUnitDeadChanged, 'EVENT_UNIT_DEAD_CHANGED')
 
 	-- common.RegisterEventHandler(onBuffProgressAdded, 'EVENT_OBJECT_BUFF_PROGRESS_ADDED')
 	-- common.RegisterEventHandler(onBuffProgressChanged, 'EVENT_OBJECT_BUFF_PROGRESS_CHANGED')

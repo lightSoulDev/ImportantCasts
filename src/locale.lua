@@ -23,6 +23,7 @@ LOCALES = {
         ["GROUP_Bars"] = "Настройки панелей",
         ["SETTING_MaxBars"] = "Максимально количество панелей",
         ["SETTING_BarsWidth"] = "Ширина панелей",
+        ["SETTING_BarsHeight"] = "Высота панелей",
         ["SETTING_ShowBuffCaster"] = "Показывать кастера баффа",
         ["SETTING_ShowCastTarget"] = "Показывать цель каста моба",
 
