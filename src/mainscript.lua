@@ -16,6 +16,49 @@ local DefaultConfig = {
 
 local TRACKED_UNITS = {}
 
+----------------------------------------------------------------------------------------------------
+-- AOPanel support
+
+local IsAOPanelEnabled = GetConfig("EnableAOPanel") or GetConfig("EnableAOPanel") == nil
+
+local function onAOPanelStart(p)
+	if IsAOPanelEnabled then
+		local SetVal = { val = userMods.ToWString("IC") }
+		local params = { header = SetVal, ptype = "button", size = 32 }
+		userMods.SendEvent("AOPANEL_SEND_ADDON",
+			{ name = common.GetAddonName(), sysName = common.GetAddonName(), param = params })
+
+		local cfgBtn = mainForm:GetChildChecked("ConfigButton", false)
+		if cfgBtn then
+			cfgBtn:Show(false)
+		end
+	end
+end
+
+local function onAOPanelLeftClick(p)
+	if p.sender == common.GetAddonName() then
+		UI.toggle()
+	end
+end
+
+local function onAOPanelRightClick(p)
+	if p.sender == common.GetAddonName() then
+		ToggleDnd()
+	end
+end
+
+local function onAOPanelChange(params)
+	if params.unloading and params.name == "UserAddon/AOPanelMod" then
+		local cfgBtn = mainForm:GetChildChecked("ConfigButton", false)
+		if cfgBtn then
+			cfgBtn:Show(true)
+		end
+	end
+end
+
+----------------------------------------------------------------------------------------------------
+
+
 local function destroyCastBar(widget)
 	for k, v in pairs(active_casts) do
 		if (v:GetName() == widget:GetName()) then
@@ -448,6 +491,7 @@ end
 function ToggleDnd()
 	if (bar_template:IsVisibleEx()) then
 		DnD.Enable(bar_template, false)
+		UI.dnd(false)
 		bar_template:Show(false)
 		bar_template:SetTransparentInput(true)
 		spell_template:SetTransparentInput(true)
@@ -462,6 +506,7 @@ function ToggleDnd()
 		Log("Drag & Drop - Off.")
 	else
 		DnD.Enable(bar_template, true)
+		UI.dnd(true)
 		bar_template:Show(true)
 		bar_template:SetTransparentInput(false)
 		spell_template:SetTransparentInput(false)
@@ -872,6 +917,12 @@ function Init()
 	common.RegisterReactionHandler(onButtonAlt, "OnBarAltClick")
 	common.RegisterReactionHandler(onCfgLeft, "ConfigLeftClick")
 	common.RegisterReactionHandler(onCfgRight, "ConfigRightClick")
+
+	-- AOPanel
+	common.RegisterEventHandler(onAOPanelStart, "AOPANEL_START")
+	common.RegisterEventHandler(onAOPanelLeftClick, "AOPANEL_BUTTON_LEFT_CLICK")
+	common.RegisterEventHandler(onAOPanelRightClick, "AOPANEL_BUTTON_RIGHT_CLICK")
+	common.RegisterEventHandler(onAOPanelChange, "EVENT_ADDON_LOAD_STATE_CHANGED")
 
 	bar_template:AddChild(spell_template)
 	spell_template:Show(true)
