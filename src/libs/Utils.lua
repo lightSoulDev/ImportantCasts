@@ -83,7 +83,7 @@ function contains(array, value)
     return false
 end
 
-function getGroupTexture(group, name)
+function GetGroupTexture(group, name)
     local g = common.GetAddonRelatedTextureGroup(group)
 
     if g and g:HasTexture(name) then

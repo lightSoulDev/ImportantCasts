@@ -1390,7 +1390,7 @@ function UI.render()
                             end
                         end
                     else
-                        local texture = getGroupTexture("RELATED_TEXTURES", v.params.iconName)
+                        local texture = GetGroupTexture("RELATED_TEXTURES", v.params.iconName)
                         if (texture ~= nil) then
                             if (icon ~= nil) then
                                 icon:SetBackgroundTexture(texture)
