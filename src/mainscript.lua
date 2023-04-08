@@ -13,6 +13,8 @@ local DefaultConfig = {
 	clickable = false
 }
 
+local TRACKED_UNITS = {}
+
 local function destroyCastBar(widget)
 	widget:Show(false)
 
@@ -215,6 +217,9 @@ local function onCast(p)
 
 		if (p.spellId) then
 			castInfo.texture = spellLib.GetIcon(p.spellId)
+			UI.registerTexture(FromWS(p.name), {
+				spellId = p.spellId,
+			})
 		end
 		addCast(castInfo)
 	end
@@ -313,21 +318,66 @@ local function onBuff(p)
 					["texture"] = info.texture,
 					["alt_id"] = info.producer.casterId
 				}
+
+				UI.registerTexture(FromWS(info.name), {
+					buffId = info.buffId,
+				})
 				addCast(castInfo)
 			end
 		end
 	end
 end
 
-local function onBuffProgressAdded(p)
-	onBuff(p)
+local function onUnitDeadChanged(p)
+	-- test
+	-- if (object.IsDead(p.unitId)) then
+	-- 	for k, v in pairs(TRACKED_UNITS) do
+	-- 		if (v == p.unitId) then
+	-- 			table.remove(TRACKED_UNITS, k)
+	-- 		end
+	-- 	end
+	-- end
 end
 
-local function onBuffProgressChanged(p)
-	onBuff(p)
+local function getUnits()
+	local units = avatar.GetUnitList()
+	for _, id in ipairs(units) do
+		table.insert(TRACKED_UNITS, id)
+		common.RegisterEventHandler(onBuff, "EVENT_OBJECT_BUFF_ADDED", {
+			objectId = id
+		})
+	end
 end
 
-local function onBuffProgressRemoved(p)
+local function onUnitsChanged(p)
+	local spawned = p.spawned
+	local despawned = p.despawned
+
+	for i = 0, len(spawned) - 1, 1 do
+		local id = spawned[i]
+		if (id ~= nil) then
+			-- Log("spawned " .. tostring(id) .. " " .. FromWS(object.GetName(id)))
+			table.insert(TRACKED_UNITS, id)
+			common.RegisterEventHandler(onBuff, "EVENT_OBJECT_BUFF_ADDED", {
+				objectId = id
+			})
+		end
+	end
+
+	for i = 0, len(despawned) - 1, 1 do
+		local id = despawned[i]
+		if (id ~= nil) then
+			-- Log("despawned " .. tostring(id) .. " " .. FromWS(object.GetName(id)))
+			common.UnRegisterEventHandler(onBuff, "EVENT_OBJECT_BUFF_ADDED", {
+				objectId = id
+			})
+			for k, v in pairs(TRACKED_UNITS) do
+				if (v == id) then
+					table.remove(TRACKED_UNITS, k)
+				end
+			end
+		end
+	end
 end
 
 local function onCastFinish(p)
@@ -450,30 +500,40 @@ local function addBuffCallback(widget, settings, editline)
 	editline:SetFocus(false)
 	local text = editline:GetString()
 
-	UI.groupPush("ShowBuffs",
+	UI.groupPush("BuffsSettings",
 		UI.createItemSetting(text, {
 			iconName = text,
 			checkboxes = {
 				{
-					name = "outP",
-					label = "CB_outP",
+					name = "self",
+					label = "CB_self",
 					default = false
 				},
 				{
-					name = "incP",
-					label = "CB_incP",
+					name = "enemyPlayer",
+					label = "CB_enemyPlayer",
 					default = false
 				},
 				{
-					name = "outU",
-					label = "CB_outU",
+					name = "enemyMob",
+					label = "CB_enemyMob",
 					default = false
 				},
 				{
-					name = "incU",
-					label = "CB_incU",
+					name = "raidgroup",
+					label = "CB_raidgroup",
 					default = false
 				},
+				{
+					name = "friendlyPlayer",
+					label = "CB_friendlyPlayer",
+					default = false
+				},
+				{
+					name = "friendlyMob",
+					label = "CB_friendlyMob",
+					default = false
+				}
 			}
 		}, true), true
 	)
@@ -485,7 +545,7 @@ local function addCastCallback(widget, settings, editline)
 	editline:SetFocus(false)
 	local text = editline:GetString()
 
-	UI.groupPush("IgnoreCasts",
+	UI.groupPush("CastsSettings",
 		UI.createItemSetting(text, {
 			iconName = text,
 			checkboxes = {}
@@ -499,12 +559,74 @@ local function addUnitCallback(widget, settings, editline)
 	editline:SetFocus(false)
 	local text = editline:GetString()
 
-	UI.groupPush("IgnoreUnits",
+	UI.groupPush("UnitsSettings",
 		UI.createItemSetting(text, {
-			iconName = text,
+			iconName = "UNIT",
 			checkboxes = {}
 		}, true), true
 	)
+
+	UI.render()
+end
+
+local function addRecommendedBuffs()
+	UI.groupPush("BuffsSettings",
+		UI.createItemSetting("*Длительный контроль*", {
+			iconName = "*Длительный контроль*",
+			checkboxes = {
+				{
+					name = "self",
+					label = "CB_self",
+					default = false
+				},
+				{
+					name = "enemyPlayer",
+					label = "CB_enemyPlayer",
+					default = true
+				},
+				{
+					name = "enemyMob",
+					label = "CB_enemyMob",
+					default = true
+				},
+				{
+					name = "raidgroup",
+					label = "CB_raidgroup",
+					default = true
+				},
+				{
+					name = "friendlyPlayer",
+					label = "CB_friendlyPlayer",
+					default = false
+				},
+				{
+					name = "friendlyMob",
+					label = "CB_friendlyMob",
+					default = false
+				}
+			}
+		}, true), true
+	)
+
+	UI.render()
+end
+
+local function addRecommendedUnits()
+	local recomendedUnits = {
+		"Демонический маяк",
+		"Песчаный червь",
+		"Охотник Свалки",
+		"Охотница Свалки"
+	}
+
+	for _, unit in pairs(recomendedUnits) do
+		UI.groupPush("UnitsSettings",
+			UI.createItemSetting(unit, {
+				iconName = "UNIT",
+				checkboxes = {}
+			}, true), true
+		)
+	end
 
 	UI.render()
 end
@@ -528,7 +650,7 @@ local function setupUI()
 
 	UI.addGroup("Interaction", {
 		UI.withCallback(UI.createCheckBox("IsClickable", false), isClickableCallback),
-		UI.createCheckBox("IgnoreRightClick", false),
+		UI.createCheckBox("EnableRightClick", true),
 	})
 
 	UI.createColorGroup("MyBuffColor", {
@@ -567,8 +689,27 @@ local function setupUI()
 		a = 50,
 	})
 
-	UI.addGroup("ShowBuffs", {
-		UI.createCheckBox("Enable", false),
+	UI.addGroup("BuffsSettings", {
+		UI.createList("Mode", {
+			"Disable",
+			"HideOnly",
+			"ShowOnly",
+		}, 3, true),
+		UI.withCustomClass(UI.createListLabel("Mode", {
+			"BuffsModeDisableInfo",
+			"BuffsModeHideOnlyInfo",
+			"BuffsModeShowOnlyInfo",
+		}), "tip_white"),
+		UI.withCondition(UI.withCustomClass(
+			UI.createButton("AddRecommended", {
+				width = 90,
+				states = {
+					"ButtonAdd",
+				},
+				callback = addRecommendedBuffs
+			}, 1),
+			"tip_white"
+		), "Mode", "ShowOnly"),
 		UI.createButtonInput("AddBuff", {
 			width = 90,
 			states = {
@@ -578,8 +719,17 @@ local function setupUI()
 		}, 1),
 	})
 
-	UI.addGroup("IgnoreCasts", {
-		UI.createCheckBox("Enable", false),
+	UI.addGroup("CastsSettings", {
+		UI.createList("Mode", {
+			"Disable",
+			"HideOnly",
+			"ShowOnly",
+		}, 2, true),
+		UI.createListLabel("Mode", {
+			"CastsModeDisableInfo",
+			"CastsModeHideOnlyInfo",
+			"CastsModeShowOnlyInfo",
+		}),
 		UI.createButtonInput("AddCast", {
 			width = 90,
 			states = {
@@ -589,8 +739,27 @@ local function setupUI()
 		}, 1),
 	})
 
-	UI.addGroup("IgnoreUnits", {
-		UI.createCheckBox("Enable", false),
+	UI.addGroup("UnitsSettings", {
+		UI.createList("Mode", {
+			"Disable",
+			"HideOnly",
+			"ShowOnly",
+		}, 2, true),
+		UI.withCustomClass(UI.createListLabel("Mode", {
+			"UnitsModeDisableInfo",
+			"UnitsModeHideOnlyInfo",
+			"UnitsModeShowOnlyInfo",
+		}), "tip_white"),
+		UI.withCondition(UI.withCustomClass(
+			UI.createButton("AddRecommended", {
+				width = 90,
+				states = {
+					"ButtonAdd",
+				},
+				callback = addRecommendedUnits
+			}, 1),
+			"tip_white"
+		), "Mode", "HideOnly"),
 		UI.createButtonInput("AddUnit", {
 			width = 90,
 			states = {
@@ -613,33 +782,33 @@ local function setupUI()
 			}
 		},
 		{
-			label = "ShowBuffs",
+			label = "Buffs",
 			buttons = {
 				left = { "Restore" },
 				right = { "Accept" }
 			},
 			groups = {
-				"ShowBuffs"
+				"BuffsSettings"
 			}
 		},
 		{
-			label = "IgnoreCasts",
+			label = "Casts",
 			buttons = {
 				left = { "Restore" },
 				right = { "Accept" }
 			},
 			groups = {
-				"IgnoreCasts"
+				"CastsSettings"
 			}
 		},
 		{
-			label = "IgnoreUnits",
+			label = "Units",
 			buttons = {
 				left = { "Restore" },
 				right = { "Accept" }
 			},
 			groups = {
-				"IgnoreUnits"
+				"UnitsSettings"
 			}
 		},
 		{
@@ -670,10 +839,16 @@ function Init()
 
 	common.RegisterEventHandler(onPlayEffectFinished, 'EVENT_EFFECT_FINISHED')
 	common.RegisterEventHandler(onSlash, 'EVENT_UNKNOWN_SLASH_COMMAND')
-	common.RegisterEventHandler(onBuff, 'EVENT_OBJECT_BUFF_ADDED')
+	-- common.RegisterEventHandler(onBuff, 'EVENT_OBJECT_BUFF_ADDED')
+	-- common.RegisterEventHandler(onBuffsChanged, 'EVENT_OBJECT_BUFFS_CHANGED')
+	common.RegisterEventHandler(onUnitsChanged, 'EVENT_UNITS_CHANGED')
+	common.RegisterEventHandler(onUnitDeadChanged, 'EVENT_UNIT_DEAD_CHANGED')
 
-	common.RegisterEventHandler(onBuffProgressAdded, 'EVENT_OBJECT_BUFF_PROGRESS_ADDED')
-	common.RegisterEventHandler(onBuffProgressChanged, 'EVENT_OBJECT_BUFF_PROGRESS_CHANGED')
+
+
+
+	-- common.RegisterEventHandler(onBuffProgressAdded, 'EVENT_OBJECT_BUFF_PROGRESS_ADDED')
+	-- common.RegisterEventHandler(onBuffProgressChanged, 'EVENT_OBJECT_BUFF_PROGRESS_CHANGED')
 	-- common.RegisterEventHandler(onBuffProgressRemoved, 'EVENT_OBJECT_BUFF_PROGRESS_REMOVED')
 
 	common.RegisterEventHandler(onCast, 'EVENT_MOB_ACTION_PROGRESS_START')
@@ -700,8 +875,7 @@ function Init()
 	DnD.Enable(cfgBtn, true)
 
 	setupUI()
-
-	Log("Loaded.")
+	getUnits()
 end
 
 if (avatar.IsExist()) then

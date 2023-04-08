@@ -11,7 +11,7 @@
 		<X>
 			<Align>WIDGET_ALIGN_CENTER</Align>
 			<Sizing>WIDGET_SIZING_DEFAULT</Sizing>
-			<Size>300</Size>
+			<Size>550</Size>
 		</X>
 		<Y>
 			<Align>WIDGET_ALIGN_LOW</Align>

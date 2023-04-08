@@ -8,6 +8,8 @@ Global("USER_SETTINGS", {})
 Global("CALLBACKS", {})
 Global("LANG", "rus")
 Global("COLOR_PREVIEWS", {})
+Global("LIST_LABELS", {})
+Global("RENDER_CONDITIONS", {})
 Global("COLOR_CLASSES", {
     ["DamageVisDp"] = true,
     ["Quest"] = true,
@@ -289,7 +291,7 @@ local ITEM_SETTING_CB_POS = {
 local ITEM_SETTING_CB_POS_6 = {
     {
         alignX = 0,
-        posX = 271,
+        posX = 295,
         highPosX = 0,
         alignY = 0,
         posY = 4,
@@ -297,7 +299,7 @@ local ITEM_SETTING_CB_POS_6 = {
     },
     {
         alignX = 0,
-        posX = 371,
+        posX = 385,
         highPosX = 0,
         alignY = 0,
         posY = 4,
@@ -305,7 +307,7 @@ local ITEM_SETTING_CB_POS_6 = {
     },
     {
         alignX = 0,
-        posX = 471,
+        posX = 475,
         highPosX = 0,
         alignY = 0,
         posY = 4,
@@ -313,7 +315,7 @@ local ITEM_SETTING_CB_POS_6 = {
     },
     {
         alignX = 0,
-        posX = 271,
+        posX = 295,
         highPosX = 0,
         alignY = 1,
         posY = 0,
@@ -321,7 +323,7 @@ local ITEM_SETTING_CB_POS_6 = {
     },
     {
         alignX = 0,
-        posX = 371,
+        posX = 385,
         highPosX = 0,
         alignY = 1,
         posY = 0,
@@ -329,7 +331,7 @@ local ITEM_SETTING_CB_POS_6 = {
     },
     {
         alignX = 0,
-        posX = 471,
+        posX = 475,
         highPosX = 0,
         alignY = 1,
         posY = 0,
@@ -394,8 +396,8 @@ end
 local function getConfigIcon(e)
     local icon
     if (e.buffId) then
-        local info = object.GetBuffInfo(e.buffId) or avatar.GetBuffInfo(e.buffId)
-        if (info) then
+        local info = object.GetBuffInfo(e.buffId) or avatar.GetBuffInfoById(e.buffId)
+        if (info ~= nil) then
             if (info.texture) then
                 icon = info.texture
             elseif (info.producer and info.producer.spellId) then
@@ -438,7 +440,6 @@ local function onListButtonClick(params)
                 if (index > #(settings.options)) then index = 1 end
             end
 
-            settings.widgets.value:SetVal("text", tostring(settings.options[index]))
             settings.widgets.lBtn:Enable(settings.cycle or index > 1)
             settings.widgets.rBtn:Enable(settings.cycle or index < #(settings.options))
 
@@ -450,12 +451,24 @@ local function onListButtonClick(params)
                 settings.widgets.value:SetClassVal("class", tmp)
             else
                 settings.widgets.value:SetClassVal("class", "tip_white")
+                tmp = GetLocaleText(tmp)
             end
+
+            settings.widgets.value:SetVal("text", tmp)
 
             saveSettings()
 
+            if (LIST_LABELS[params.sender]) then
+                LIST_LABELS[params.sender].widget:SetVal("simplelabel_text",
+                    GetLocaleText(tostring(LIST_LABELS[params.sender].labels[index])))
+            end
+
             if (CALLBACKS[params.sender] and type(CALLBACKS[params.sender]) == "function") then
                 CALLBACKS[params.sender](UI_SETTINGS[params.sender].value)
+            end
+
+            if (RENDER_CONDITIONS[params.sender] ~= nil) then
+                UI.render()
             end
         end
     end
@@ -658,6 +671,8 @@ end
 function UI.init(name)
     CALLBACKS = {}
     COLOR_PREVIEWS = {}
+    LIST_LABELS = {}
+    RENDER_CONDITIONS = {}
 
     common.RegisterReactionHandler(onCheckboxClick, "setting_cb")
     common.RegisterReactionHandler(onListButtonClick, "setting_list_button_left")
@@ -832,6 +847,19 @@ function UI.withCallback(UISetting, callback)
     return UISetting
 end
 
+function UI.withCondition(UISetting, setting, value)
+    UISetting.condition = {
+        setting = setting,
+        value = value
+    }
+    return UISetting
+end
+
+function UI.withCustomClass(UISetting, class)
+    UISetting.customClass = class
+    return UISetting
+end
+
 function UI.createCheckBox(name, default)
     local label = GetLocaleText("SETTING_" .. name)
 
@@ -847,7 +875,7 @@ end
 
 function UI.createColorGroup(name, default)
     UI.addGroup(name, {
-        UI.createColorPreview(name),
+        UI.createColorPreview(name, "ColorPreview"),
         UI.createSlider("r", {
             stepsCount = 255,
             width = 212,
@@ -867,11 +895,25 @@ function UI.createColorGroup(name, default)
     })
 end
 
-function UI.createColorPreview(name)
-    local label = GetLocaleText("SETTING_" .. name)
+function UI.createColorPreview(name, label)
+    local temp = { name = name, label = GetLocaleText(tostring(label)), type = "ColorPreview", params = {} }
+    return temp
+end
 
-    local temp = { name = name, label = label, type = "ColorPreview", params = {} }
+function UI.createSimpleLabel(label)
+    local temp = { name = label, label = label, type = "SimpleLabel", params = {} }
+    return temp
+end
 
+function UI.createListLabel(listName, labels)
+    local temp = {
+        name = listName,
+        label = labels[1],
+        type = "ListLabel",
+        params = {
+            labels = labels,
+        }
+    }
     return temp
 end
 
@@ -1042,9 +1084,19 @@ function UI.loadUserSettings()
 end
 
 function UI.groupPush(name, setting, user)
+    -- if name is just whitespace, ignore it
+    if (setting.name:match("^%s*$")) then return end
     if (SETTING_GROUPS[name]) then
         if (user) then
-            if (not USER_SETTINGS[name]) then USER_SETTINGS[name] = {} end
+            if (not USER_SETTINGS[name]) then
+                USER_SETTINGS[name] = {}
+            else
+                for k, v in pairs(USER_SETTINGS[name]) do
+                    if (v and v.name == setting.name) then
+                        return
+                    end
+                end
+            end
             table.insert(USER_SETTINGS[name], setting)
             userMods.SetGlobalConfigSection("USER_SETTINGS", USER_SETTINGS)
         end
@@ -1174,12 +1226,24 @@ function UI.render()
         local header = groupFrame:GetChildChecked("GroupHeader", false):GetChildChecked("HeaderText", false)
         header:SetVal("name", grouplabel)
 
+        local verticalIndex = -1
         for i = 1, #settings, 1 do
             local v = settings[i]
+            verticalIndex = verticalIndex + 1
             if (v and v.type) then
                 local id = group_name .. "_" .. v.name
                 if (v.callback) then
                     CALLBACKS[id] = v.callback
+                end
+                if (v.condition) then
+                    local setting_id = group_name .. "_" .. v.condition.setting
+                    RENDER_CONDITIONS[setting_id] = v.condition.value
+                    if (UI_SETTINGS[setting_id] and UI_SETTINGS[setting_id].value ~= v.condition.value) then
+                        frameH = frameH - 45
+                        WtSetPlace(groupFrame, { sizeY = frameH })
+                        verticalIndex = verticalIndex - 1
+                        goto renderContinue
+                    end
                 end
                 -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
                 -- =-               C H E C K B O X               -=
@@ -1190,14 +1254,18 @@ function UI.render()
                             alignX = 2,
                             posX = 1,
                             sizeX = maxW,
-                            posY = minPosY + (i - 1) * 45 + extraPadding,
+                            posY = minPosY + verticalIndex * 45 + extraPadding,
                             highPosX = 0,
                             alignY = 0
                         })
                     local button = panel:GetChildChecked("Checkbox", false)
                     local label = panel:GetChildChecked("CheckboxPanelText", false)
                     groupFrame:AddChild(panel)
-
+                    if (v.customClass ~= nil) then
+                        label:SetClassVal("class", v.customClass)
+                    else
+                        label:SetClassVal("class", "Golden")
+                    end
                     button:SetName(id)
                     label:SetVal("checkbox_text", v.label)
 
@@ -1207,6 +1275,55 @@ function UI.render()
 
                     button:SetVariant(ToVariant(UI_SETTINGS[id].value))
                     -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                    -- =-             L I S T   L A B E L             -=
+                    -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                elseif (v.type == "ListLabel") then
+                    local panel = CreateWG("SimpleLabelPanel", "SimpleLabelPanel", groupFrame, true,
+                        {
+                            alignX = 2,
+                            posX = 1,
+                            sizeX = maxW,
+                            posY = minPosY + verticalIndex * 45 + extraPadding,
+                            highPosX = 0,
+                            alignY = 0
+                        })
+                    local label = panel:GetChildChecked("SimpleLabelPanelText", false)
+                    groupFrame:AddChild(panel)
+                    if (UI_SETTINGS[id] and UI_SETTINGS[id].index) then
+                        label:SetVal("simplelabel_text", GetLocaleText(tostring(v.params.labels[UI_SETTINGS[id].index])))
+                    else
+                        label:SetVal("simplelabel_text", GetLocaleText("Err"))
+                    end
+
+                    if (v.customClass ~= nil) then
+                        label:SetClassVal("class", v.customClass)
+                    else
+                        label:SetClassVal("class", "Golden")
+                    end
+
+                    LIST_LABELS[id] = { widget = label, labels = v.params.labels }
+                    -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                    -- =-           S I M P L E   L A B E L           -=
+                    -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                elseif (v.type == "SimpleLabel") then
+                    local panel = CreateWG("SimpleLabelPanel", "SimpleLabelPanel", groupFrame, true,
+                        {
+                            alignX = 2,
+                            posX = 1,
+                            sizeX = maxW,
+                            posY = minPosY + verticalIndex * 45 + extraPadding,
+                            highPosX = 0,
+                            alignY = 0
+                        })
+                    local label = panel:GetChildChecked("SimpleLabelPanelText", false)
+                    groupFrame:AddChild(panel)
+                    if (v.customClass ~= nil) then
+                        label:SetClassVal("class", v.customClass)
+                    else
+                        label:SetClassVal("class", "Golden")
+                    end
+                    label:SetVal("simplelabel_text", GetLocaleText(tostring(v.label)))
+                    -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
                     -- =-          C O L O R   P R E V I E W          -=
                     -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
                 elseif (v.type == "ColorPreview") then
@@ -1215,14 +1332,18 @@ function UI.render()
                             alignX = 2,
                             posX = 1,
                             sizeX = maxW,
-                            posY = minPosY + (i - 1) * 45 + extraPadding,
+                            posY = minPosY + verticalIndex * 45 + extraPadding,
                             highPosX = 0,
                             alignY = 0
                         })
                     local label = panel:GetChildChecked("ColorPreviewPanelText", false)
                     groupFrame:AddChild(panel)
                     label:SetVal("colorpreview_text", v.label)
-
+                    if (v.customClass ~= nil) then
+                        label:SetClassVal("class", v.customClass)
+                    else
+                        label:SetClassVal("class", "Golden")
+                    end
                     local icon = panel:GetChildChecked("ColorPreviewIcon", false)
                     COLOR_PREVIEWS[v.name] = icon
                     updateColorPreview(v.name, icon)
@@ -1236,7 +1357,7 @@ function UI.render()
                             alignX = 2,
                             posX = 1,
                             sizeX = maxW,
-                            posY = minPosY + (i - 1) * 45 + extraPadding,
+                            posY = minPosY + verticalIndex * 45 + extraPadding,
                             highPosX = 0,
                             alignY = 0
                         })
@@ -1247,6 +1368,11 @@ function UI.render()
                     WtSetPlace(groupFrame, { sizeY = frameH + extraPadding })
                     groupFrame:AddChild(panel)
                     panel:SetName(id)
+                    if (v.customClass ~= nil) then
+                        label:SetClassVal("class", v.customClass)
+                    else
+                        label:SetClassVal("class", "Golden")
+                    end
                     label:SetVal("text", v.label)
 
                     if (btnDelete) then
@@ -1258,9 +1384,17 @@ function UI.render()
 
                     if (UI_SETTINGS.registeredTextures[v.label]) then
                         local texture = getConfigIcon(UI_SETTINGS.registeredTextures[v.label])
-
-                        if (icon) then
-                            icon:SetBackgroundTexture(texture)
+                        if (texture ~= nil) then
+                            if (icon ~= nil) then
+                                icon:SetBackgroundTexture(texture)
+                            end
+                        end
+                    else
+                        local texture = getGroupTexture("RELATED_TEXTURES", v.params.iconName)
+                        if (texture ~= nil) then
+                            if (icon ~= nil) then
+                                icon:SetBackgroundTexture(texture)
+                            end
                         end
                     end
 
@@ -1315,15 +1449,19 @@ function UI.render()
                             alignX = 2,
                             posX = 1,
                             sizeX = maxW,
-                            posY = minPosY + (i - 1) * 45 + extraPadding,
+                            posY = minPosY + verticalIndex * 45 + extraPadding,
                             highPosX = 0,
                             alignY = 0
                         })
                     local button = panel:GetChildChecked("Button", true)
                     local label = panel:GetChildChecked("ButtonPanelText", false)
                     groupFrame:AddChild(panel)
-
-                    label:SetVal("text", v.label)
+                    if (v.customClass ~= nil) then
+                        label:SetClassVal("class", v.customClass)
+                    else
+                        label:SetClassVal("class", "Golden")
+                    end
+                    label:SetVal("text", tostring(v.label))
                     button:SetName(id)
                     WtSetPlace(button, { sizeX = v.params.options.width })
 
@@ -1338,7 +1476,7 @@ function UI.render()
                         }
                     end
 
-                    button:SetVal("label", ToWS(UI_SETTINGS[id].value))
+                    button:SetVal("label", ToWS(GetLocaleText(tostring(UI_SETTINGS[id].value))))
                     UI_SETTINGS[id].callback = v.params.callback
 
                     -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -1350,14 +1488,18 @@ function UI.render()
                             alignX = 2,
                             posX = 1,
                             sizeX = maxW,
-                            posY = minPosY + (i - 1) * 45 + extraPadding,
+                            posY = minPosY + verticalIndex * 45 + extraPadding,
                             highPosX = 0,
                             alignY = 0
                         })
                     local button = panel:GetChildChecked("Button", true)
                     local label = panel:GetChildChecked("ButtonInputPanelText", false)
                     groupFrame:AddChild(panel)
-
+                    if (v.customClass ~= nil) then
+                        label:SetClassVal("class", v.customClass)
+                    else
+                        label:SetClassVal("class", "Golden")
+                    end
                     label:SetVal("text", v.label)
                     button:SetName(id)
                     WtSetPlace(button, { sizeX = v.params.options.width })
@@ -1384,7 +1526,7 @@ function UI.render()
                             alignX = 2,
                             posX = 1,
                             sizeX = maxW,
-                            posY = minPosY + (i - 1) * 45 + extraPadding,
+                            posY = minPosY + verticalIndex * 45 + extraPadding,
                             highPosX = 0,
                             alignY = 0
                         })
@@ -1393,7 +1535,11 @@ function UI.render()
                     local lBtn = panel:GetChildChecked("ListPanelButtonLeft", true)
                     local rBtn = panel:GetChildChecked("ListPanelButtonRight", true)
                     groupFrame:AddChild(panel)
-
+                    if (v.customClass ~= nil) then
+                        label:SetClassVal("class", v.customClass)
+                    else
+                        label:SetClassVal("class", "Golden")
+                    end
                     label:SetVal("list_text", v.label)
                     lBtn:SetName(id)
                     rBtn:SetName(id)
@@ -1416,7 +1562,10 @@ function UI.render()
                         valueLabel:SetClassVal("class", tmp)
                     else
                         valueLabel:SetClassVal("class", "tip_white")
+                        tmp = GetLocaleText(tmp)
                     end
+
+                    valueLabel:SetVal("text", tmp)
 
                     lBtn:Enable(v.params.cycle or UI_SETTINGS[id].index > 1)
                     rBtn:Enable(v.params.cycle or UI_SETTINGS[id].index < #(UI_SETTINGS[id].options))
@@ -1433,7 +1582,7 @@ function UI.render()
                             alignX = 2,
                             posX = 1,
                             sizeX = maxW,
-                            posY = minPosY + (i - 1) * 45 + extraPadding,
+                            posY = minPosY + verticalIndex * 45 + extraPadding,
                             highPosX = 0,
                             alignY = 0
                         })
@@ -1443,7 +1592,11 @@ function UI.render()
                     local valueLabel = barPanel:GetChildChecked("SliderPanelBarText", true)
 
                     groupFrame:AddChild(panel)
-
+                    if (v.customClass ~= nil) then
+                        label:SetClassVal("class", v.customClass)
+                    else
+                        label:SetClassVal("class", "Golden")
+                    end
                     label:SetVal("slider_text", v.label)
                     WtSetPlace(barPanel, { sizeX = (v.params.options.width + 61) })
                     discreteSlider:SetStepsCount(v.params.options.stepsCount)
@@ -1464,13 +1617,18 @@ function UI.render()
                             alignX = 2,
                             posX = 1,
                             sizeX = maxW,
-                            posY = minPosY + (i - 1) * 45 + extraPadding,
+                            posY = minPosY + verticalIndex * 45 + extraPadding,
                             highPosX = 0,
                             alignY = 0
                         })
-                    local label = panel:GetChildChecked("InputPanelText", false):SetVal("text", v.label)
+                    local label = panel:GetChildChecked("InputPanelText", false)
                     groupFrame:AddChild(panel)
-
+                    if (v.customClass ~= nil) then
+                        label:SetClassVal("class", v.customClass)
+                    else
+                        label:SetClassVal("class", "Golden")
+                    end
+                    label:SetVal("text", v.label)
                     local inputBg = panel:GetChildChecked("InputPanelBg", true)
                     WtSetPlace(inputBg, { sizeX = (v.params.options.width) })
                     local editLine = panel:GetChildChecked("EditLine" .. v.params.options.filter, true)
@@ -1491,6 +1649,7 @@ function UI.render()
 
                     editLine:SetText(ToWS(UI_SETTINGS[id].value))
                 end
+                ::renderContinue::
             end
         end
 

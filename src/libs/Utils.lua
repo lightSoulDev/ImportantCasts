@@ -86,7 +86,7 @@ end
 function getGroupTexture(group, name)
     local g = common.GetAddonRelatedTextureGroup(group)
 
-    if g then
+    if g and g:HasTexture(name) then
         return g:GetTexture(name)
     end
 end
