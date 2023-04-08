@@ -363,6 +363,10 @@ local function onSlash(p)
 		}
 		addCast(castInfo)
 	end
+
+	if (split_string[1]:lower() == '/casts.chore') then
+		UI.chore()
+	end
 end
 
 function ToggleDnd()
@@ -427,28 +431,173 @@ local function onCfgRight()
 	ToggleDnd()
 end
 
+local function isClickableCallback(value)
+	Config.clickable = value
+	userMods.SetGlobalConfigSection("CastPlatesConfig", Config)
+
+	for k, v in pairs(active_casts) do
+		v:SetTransparentInput(not Config.clickable)
+	end
+
+	if (Config.clickable) then
+		Log("Clickable - On.")
+	else
+		Log("Clickable - Off.")
+	end
+end
+
+local function addBuffCallback(widget, settings, editline)
+	editline:SetFocus(false)
+	local text = editline:GetString()
+
+	UI.groupPush("ShowBuffs",
+		UI.createItemSetting(text, {
+			iconName = text,
+			checkboxes = {
+				{
+					name = "outP",
+					label = "CB_outP",
+					default = false
+				},
+				{
+					name = "incP",
+					label = "CB_incP",
+					default = false
+				},
+				{
+					name = "outU",
+					label = "CB_outU",
+					default = false
+				},
+				{
+					name = "incU",
+					label = "CB_incU",
+					default = false
+				},
+			}
+		}, true), true
+	)
+
+	UI.render()
+end
+
+local function addCastCallback(widget, settings, editline)
+	editline:SetFocus(false)
+	local text = editline:GetString()
+
+	UI.groupPush("IgnoreCasts",
+		UI.createItemSetting(text, {
+			iconName = text,
+			checkboxes = {}
+		}, true), true
+	)
+
+	UI.render()
+end
+
+local function addUnitCallback(widget, settings, editline)
+	editline:SetFocus(false)
+	local text = editline:GetString()
+
+	UI.groupPush("IgnoreUnits",
+		UI.createItemSetting(text, {
+			iconName = text,
+			checkboxes = {}
+		}, true), true
+	)
+
+	UI.render()
+end
+
 local function setupUI()
 	LANG = common.GetLocalization() or "rus"
 	UI.init("ImportantCasts")
 
-	UI.addGroup("PanelSettings", {
-		UI.withCallback(
-			UI.createCheckBox("IsClickable", false),
-			function(value)
-				Config.clickable = value
-				userMods.SetGlobalConfigSection("CastPlatesConfig", Config)
+	UI.addGroup("Bars", {
+		UI.createInput("MaxBars", {
+			maxChars = 2,
+			filter = "_INT"
+		}, '6'),
+		UI.createInput("BarsWidth", {
+			maxChars = 4,
+			filter = "_INT"
+		}, '300'),
+		UI.createCheckBox("ShowBuffCaster", true),
+		UI.createCheckBox("ShowCastTarget", true),
+	})
 
-				for k, v in pairs(active_casts) do
-					v:SetTransparentInput(not Config.clickable)
-				end
+	UI.addGroup("Interaction", {
+		UI.withCallback(UI.createCheckBox("IsClickable", false), isClickableCallback),
+		UI.createCheckBox("IgnoreRightClick", false),
+	})
 
-				if (Config.clickable) then
-					Log("Clickable - On.")
-				else
-					Log("Clickable - Off.")
-				end
-			end
-		),
+	UI.createColorGroup("MyBuffColor", {
+		r = 0,
+		g = 204,
+		b = 0,
+		a = 50,
+	})
+
+	UI.createColorGroup("EnemyBuffColor", {
+		r = 204,
+		g = 0,
+		b = 0,
+		a = 50,
+	})
+
+	UI.createColorGroup("OtherBuffColor", {
+		r = 0,
+		g = 153,
+		b = 153,
+		a = 50,
+	})
+
+	UI.createColorGroup("MobCastColor", {
+		r = 204,
+		g = 0,
+		b = 0,
+		a = 50,
+	})
+
+
+	UI.createColorGroup("MobCastAtMeColor", {
+		r = 255,
+		g = 255,
+		b = 255,
+		a = 50,
+	})
+
+	UI.addGroup("ShowBuffs", {
+		UI.createCheckBox("Enable", false),
+		UI.createButtonInput("AddBuff", {
+			width = 90,
+			states = {
+				"ButtonAdd",
+			},
+			callback = addBuffCallback
+		}, 1),
+	})
+
+	UI.addGroup("IgnoreCasts", {
+		UI.createCheckBox("Enable", false),
+		UI.createButtonInput("AddCast", {
+			width = 90,
+			states = {
+				"ButtonAdd",
+			},
+			callback = addCastCallback
+		}, 1),
+	})
+
+	UI.addGroup("IgnoreUnits", {
+		UI.createCheckBox("Enable", false),
+		UI.createButtonInput("AddUnit", {
+			width = 90,
+			states = {
+				"ButtonAdd",
+			},
+			callback = addUnitCallback
+		}, 1),
 	})
 
 	UI.setTabs({
@@ -459,7 +608,52 @@ local function setupUI()
 				right = { "Accept" }
 			},
 			groups = {
-				"PanelSettings",
+				"Bars",
+				"Interaction"
+			}
+		},
+		{
+			label = "ShowBuffs",
+			buttons = {
+				left = { "Restore" },
+				right = { "Accept" }
+			},
+			groups = {
+				"ShowBuffs"
+			}
+		},
+		{
+			label = "IgnoreCasts",
+			buttons = {
+				left = { "Restore" },
+				right = { "Accept" }
+			},
+			groups = {
+				"IgnoreCasts"
+			}
+		},
+		{
+			label = "IgnoreUnits",
+			buttons = {
+				left = { "Restore" },
+				right = { "Accept" }
+			},
+			groups = {
+				"IgnoreUnits"
+			}
+		},
+		{
+			label = "Colors",
+			buttons = {
+				left = { "Restore" },
+				right = { "Accept" }
+			},
+			groups = {
+				"MyBuffColor",
+				"EnemyBuffColor",
+				"OtherBuffColor",
+				"MobCastColor",
+				"MobCastAtMeColor",
 			}
 		}
 	}, "Common")
@@ -476,7 +670,7 @@ function Init()
 
 	common.RegisterEventHandler(onPlayEffectFinished, 'EVENT_EFFECT_FINISHED')
 	common.RegisterEventHandler(onSlash, 'EVENT_UNKNOWN_SLASH_COMMAND')
-	-- common.RegisterEventHandler(onBuff, 'EVENT_OBJECT_BUFF_ADDED')
+	common.RegisterEventHandler(onBuff, 'EVENT_OBJECT_BUFF_ADDED')
 
 	common.RegisterEventHandler(onBuffProgressAdded, 'EVENT_OBJECT_BUFF_PROGRESS_ADDED')
 	common.RegisterEventHandler(onBuffProgressChanged, 'EVENT_OBJECT_BUFF_PROGRESS_CHANGED')

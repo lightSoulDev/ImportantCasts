@@ -7,6 +7,7 @@ Global("TABS", {})
 Global("USER_SETTINGS", {})
 Global("CALLBACKS", {})
 Global("LANG", "rus")
+Global("COLOR_PREVIEWS", {})
 Global("COLOR_CLASSES", {
     ["DamageVisDp"] = true,
     ["Quest"] = true,
@@ -382,7 +383,7 @@ end
 
 local function printSettings()
     for k, v in pairs(UI_SETTINGS) do
-        LOGGER:Log("|___ " .. (k) .. " = " .. tostring(v.value))
+        Log("|___ " .. (k) .. " = " .. tostring(v.value))
     end
 end
 
@@ -507,6 +508,21 @@ local function onInputFocus(params)
     end
 end
 
+local function updateColorPreview(name, icon)
+    if (UI_SETTINGS[name .. "_r"] and UI_SETTINGS[name .. "_g"] and UI_SETTINGS[name .. "_b"]) then
+        local alpha = 1.0
+        if (UI_SETTINGS[name .. "_a"]) then alpha = UI_SETTINGS[name .. "_a"].value / 100 end
+        icon:SetBackgroundColor({
+            r = UI_SETTINGS[name .. "_r"].value / 255,
+            g = UI_SETTINGS[name .. "_g"].value / 255,
+            b = UI_SETTINGS[name .. "_b"].value / 255,
+            a = alpha
+        })
+    else
+        icon:SetBackgroundColor({ r = 0, g = 0, b = 0, a = 0 })
+    end
+end
+
 local function onSliderChange(params)
     if (params.sender and UI_SETTINGS[params.sender]) then
         local descPanel = params.widget:GetParent():GetParent()
@@ -519,6 +535,15 @@ local function onSliderChange(params)
 
         if (CALLBACKS[params.sender] and type(CALLBACKS[params.sender]) == "function") then
             CALLBACKS[params.sender](UI_SETTINGS[params.sender].value)
+        end
+
+        -- if ends with _r, _g, _b, _a then update color preview
+        local name = params.sender
+        if (name:sub(-2) == "_r" or name:sub(-2) == "_g" or name:sub(-2) == "_b" or name:sub(-2) == "_a") then
+            name = name:sub(1, -3)
+            if (COLOR_PREVIEWS[name]) then
+                updateColorPreview(name, COLOR_PREVIEWS[name])
+            end
         end
     end
 end
@@ -632,6 +657,7 @@ end
 
 function UI.init(name)
     CALLBACKS = {}
+    COLOR_PREVIEWS = {}
 
     common.RegisterReactionHandler(onCheckboxClick, "setting_cb")
     common.RegisterReactionHandler(onListButtonClick, "setting_list_button_left")
@@ -790,6 +816,11 @@ function UI.toggle()
     end
 end
 
+function UI.chore()
+    userMods.SetGlobalConfigSection("UI_SETTINGS", {})
+    UI_SETTINGS = {}
+end
+
 -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 -- =-          U I   G E N E R A T O R S          -=
 -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -810,6 +841,36 @@ function UI.createCheckBox(name, default)
 
     temp.params.value = default
     temp.params.defaultValue = default
+
+    return temp
+end
+
+function UI.createColorGroup(name, default)
+    UI.addGroup(name, {
+        UI.createColorPreview(name),
+        UI.createSlider("r", {
+            stepsCount = 255,
+            width = 212,
+        }, default.r or 0),
+        UI.createSlider("g", {
+            stepsCount = 255,
+            width = 212,
+        }, default.g or 0),
+        UI.createSlider("b", {
+            stepsCount = 255,
+            width = 212,
+        }, default.b or 0),
+        UI.createSlider("a", {
+            stepsCount = 100,
+            width = 212,
+        }, default.a or 100),
+    })
+end
+
+function UI.createColorPreview(name)
+    local label = GetLocaleText("SETTING_" .. name)
+
+    local temp = { name = name, label = label, type = "ColorPreview", params = {} }
 
     return temp
 end
@@ -1145,6 +1206,27 @@ function UI.render()
                     end
 
                     button:SetVariant(ToVariant(UI_SETTINGS[id].value))
+                    -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                    -- =-          C O L O R   P R E V I E W          -=
+                    -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                elseif (v.type == "ColorPreview") then
+                    local panel = CreateWG("ColorPreviewPanel", "ColorPreviewPanel", groupFrame, true,
+                        {
+                            alignX = 2,
+                            posX = 1,
+                            sizeX = maxW,
+                            posY = minPosY + (i - 1) * 45 + extraPadding,
+                            highPosX = 0,
+                            alignY = 0
+                        })
+                    local label = panel:GetChildChecked("ColorPreviewPanelText", false)
+                    groupFrame:AddChild(panel)
+                    label:SetVal("colorpreview_text", v.label)
+
+                    local icon = panel:GetChildChecked("ColorPreviewIcon", false)
+                    COLOR_PREVIEWS[v.name] = icon
+                    updateColorPreview(v.name, icon)
+
                     -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
                     -- =-           I T E M S E T T I N G S           -=
                     -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
