@@ -104,3 +104,19 @@ function shallowcopy(orig)
     end
     return copy
 end
+
+function GetConfig(name)
+    local cfg = userMods.GetGlobalConfigSection(common.GetAddonName())
+    if not name then return cfg end
+    return cfg and cfg[name]
+end
+
+function SetConfig(name, value)
+    local cfg = userMods.GetGlobalConfigSection(common.GetAddonName()) or {}
+    if type(name) == "table" then
+        for i, v in pairs(name) do cfg[i] = v end
+    elseif name ~= nil then
+        cfg[name] = value
+    end
+    userMods.SetGlobalConfigSection(common.GetAddonName(), cfg)
+end
