@@ -464,7 +464,7 @@ local function onListButtonClick(params)
             end
 
             if (CALLBACKS[params.sender] and type(CALLBACKS[params.sender]) == "function") then
-                CALLBACKS[params.sender](UI_SETTINGS[params.sender].value)
+                CALLBACKS[params.sender](UI_SETTINGS[params.sender].value, params.sender)
             end
 
             if (RENDER_CONDITIONS[params.sender] ~= nil) then
@@ -482,7 +482,7 @@ local function onCheckboxClick(params)
             saveSettings()
 
             if (CALLBACKS[params.sender] and type(CALLBACKS[params.sender]) == "function") then
-                CALLBACKS[params.sender](UI_SETTINGS[params.sender].value)
+                CALLBACKS[params.sender](UI_SETTINGS[params.sender].value, params.sender)
             end
         end
     end
@@ -501,7 +501,7 @@ local function onInputChange(params)
         saveSettings()
 
         if (CALLBACKS[params.sender] and type(CALLBACKS[params.sender]) == "function") then
-            CALLBACKS[params.sender](UI_SETTINGS[params.sender].value)
+            CALLBACKS[params.sender](UI_SETTINGS[params.sender].value, params.sender)
         end
     end
 
@@ -547,7 +547,7 @@ local function onSliderChange(params)
         saveSettings()
 
         if (CALLBACKS[params.sender] and type(CALLBACKS[params.sender]) == "function") then
-            CALLBACKS[params.sender](UI_SETTINGS[params.sender].value)
+            CALLBACKS[params.sender](UI_SETTINGS[params.sender].value, params.sender)
         end
 
         -- if ends with _r, _g, _b, _a then update color preview
@@ -1083,6 +1083,25 @@ function UI.loadUserSettings()
     end
 end
 
+function UI.tabPush(groupName, tabName)
+    if (TABS and not tabContainsGroup(TABS, CURRENT_TAB, groupName)) then
+        -- table.insert(TABS[CURRENT_TAB].groups, groupName)
+        local tabIndex = 1
+        for i, tab in pairs(TABS) do
+            if (tab.label == tabName) then
+                tabIndex = i
+                break
+            end
+        end
+
+        if (not TABS[tabIndex].groups) then
+            TABS[tabIndex].groups = {}
+        end
+
+        table.insert(TABS[tabIndex].groups, groupName)
+    end
+end
+
 function UI.groupPush(name, setting, user)
     -- if name is just whitespace, ignore it
     if (setting.name:match("^%s*$")) then return end
@@ -1123,8 +1142,9 @@ function UI.groupPop(name, settingName)
     end
 end
 
-function UI.addGroup(name, settings)
+function UI.addGroup(name, settings, customLabel)
     local label = GetLocaleText("GROUP_" .. name)
+    if (customLabel) then label = customLabel end
 
     SETTING_GROUPS[name] = {
         label = label,
@@ -1135,7 +1155,11 @@ end
 
 function UI.removeGroup(name)
     SETTING_GROUPS[name] = nil
-    table.remove(SETTING_GROUPS_KEYS_ORDER, name)
+    for k, v in pairs(SETTING_GROUPS_KEYS_ORDER) do
+        if (v == name) then
+            table.remove(SETTING_GROUPS_KEYS_ORDER, k)
+        end
+    end
 end
 
 function UI.setTabs(tabs, default)
