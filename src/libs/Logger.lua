@@ -1,11 +1,11 @@
 Global("LOGGER", {})
 
 local function log(message, class)
-    message = string.format("[%s]: %s", LOGGER.name, message)
+    message = string.format("[%s]: %s", common.GetAddonName(), message)
 
     local textFormat = string.format("<html fontsize='16'><rs class='class'>%s</rs></html>", message)
     local VT = common.CreateValuedText()
-    VT:SetFormat(ToWS(textFormat))
+    VT:SetFormat(userMods.ToWString(textFormat))
     if class == nil then
         class = "LogColorWhite"
     end
@@ -15,25 +15,14 @@ local function log(message, class)
     chatContainer:PushFrontValuedText(VT)
 end
 
-function LOGGER.Init()
-    LOGGER.name = common.GetAddonName()
-    LOGGER.enabled = true
-end
-
 function Log(message)
-    if LOGGER.enabled then
-        log(message, nil)
-    end
+    log(message, nil)
 end
 
 function Err(message)
-    if LOGGER.enabled then
-        log(message, "LogColorRed")
-    end
+    log(message, "LogColorRed")
 end
 
 function Warn(message)
-    if LOGGER.enabled then
-        log(message, "LogColorYellow")
-    end
+    log(message, "LogColorYellow")
 end

@@ -895,8 +895,6 @@ local function setupUI()
 end
 
 function Init()
-	LOGGER.Init()
-
 	Config = userMods.GetGlobalConfigSection("CastPlatesConfig") or DefaultConfig
 
 	common.RegisterEventHandler(onPlayEffectFinished, 'EVENT_EFFECT_FINISHED')
