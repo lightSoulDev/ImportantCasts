@@ -3,6 +3,7 @@
 	<Name>ImportantCasts</Name>
 	<AutoStart>true</AutoStart>
 	<ScriptFileRefs>
+	    <Item href="/Mods/SampleCommon/SampleAddonBase.lua"/>
 		<Item href="src/locale.lua"/>
 
 		<Item href="src/libs/Logger.lua"/>

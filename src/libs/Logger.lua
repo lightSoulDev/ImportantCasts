@@ -1,8 +1,6 @@
 Global("LOGGER", {})
 
 local function log(message, class)
-    message = string.format("[%s]: %s", common.GetAddonName(), message)
-
     local textFormat = string.format("<html fontsize='16'><rs class='class'>%s</rs></html>", message)
     local VT = common.CreateValuedText()
     VT:SetFormat(userMods.ToWString(textFormat))
@@ -10,19 +8,55 @@ local function log(message, class)
         class = "LogColorWhite"
     end
     VT:SetClassVal("class", class)
-    local chatContainer = stateMainForm:GetChildUnchecked("ChatLog", false):GetChildUnchecked("Area", false)
+    local chatLog = common.GetAddonMainForm("ChatLog")
+    if chatLog == nil then
+        return
+    end
+
+    local chatContainer = chatLog:GetChildUnchecked("Area", false)
         :GetChildUnchecked("Panel02", false):GetChildUnchecked("Container", false)
     chatContainer:PushFrontValuedText(VT)
 end
 
 function Log(message)
+    message = string.format("[%s]: %s", common.GetAddonName(), message)
     log(message, nil)
 end
 
 function Err(message)
+    message = string.format("[%s]: %s", common.GetAddonName(), message)
     log(message, "LogColorRed")
 end
 
 function Warn(message)
+    message = string.format("[%s]: %s", common.GetAddonName(), message)
     log(message, "LogColorYellow")
+end
+
+function Debug(message)
+    log(message, "LogColorWhite")
+end
+
+local function withLevel(message, level)
+    if level == nil or level <= 0 then
+        return message
+    end
+
+    local prefix = "|__"
+    for i = 2, level do
+        prefix = "    " .. prefix
+    end
+
+    return prefix .. message
+end
+
+function LogWidget(widget, level)
+    if level == nil then
+        Debug("Widget: " .. widget:GetName())
+        level = 1
+    end
+    for k, v in pairs(widget:GetNamedChildren()) do
+        Debug(withLevel("[" .. k .. "] " .. v:GetName(), level))
+        LogWidget(v, level + 1)
+    end
 end
