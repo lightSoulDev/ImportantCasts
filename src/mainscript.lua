@@ -323,7 +323,8 @@ local function onBuff(p)
 	local maskName = FromWS(p.buffName)
 	if (Settings.descriptionMasks) then
 		for k, v in pairs(Settings.descriptionMasks) do
-			if (userMods.FromWString(common.ExtractWStringFromValuedText(info.description)) == k) then
+			local description = userMods.FromWString(common.ExtractWStringFromValuedText(info.description))
+			if (description ~= nil and description:gsub("[\n\r]", " ") == k) then
 				maskName = v
 				goto endloop
 			end
@@ -396,6 +397,7 @@ end
 
 local function getUnits()
 	local units = avatar.GetUnitList()
+	table.insert(units, avatar.GetId())
 	for _, id in ipairs(units) do
 		if (not contains(TRACKED_UNITS, id)) then
 			table.insert(TRACKED_UNITS, id)
