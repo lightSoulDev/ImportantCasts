@@ -1,11 +1,17 @@
 local bar_template = mainForm:GetChildChecked("Bar", false)
+local bar_template2 = mainForm:GetChildChecked("Bar2", false)
 local spell_template = mainForm:GetChildChecked("IconSpell", false)
+local spell_template2 = mainForm:GetChildChecked("IconSpell2", false)
 
 local active_buffs = {}
 local tracking_objects_buffs = {}
 
-local active_casts = {}
+local active_cast_bars = {}
+local active_buffs_bars = {}
+
 local counter = 0
+local counter_buff = 0
+
 local active_mobs = {}
 local reaction_binds = {}
 local alt_reaction_binds = {}
@@ -60,15 +66,34 @@ end
 
 
 local function destroyCastBar(widget)
-	for k, v in pairs(active_casts) do
+	if widget == nil then return end
+	for k, v in pairs(active_cast_bars) do
 		if (v:GetName() == widget:GetName()) then
-			table.remove(active_casts, k)
+			table.remove(active_cast_bars, k)
 			v:DestroyWidget()
 		end
 	end
 
-	for k, v in pairs(active_casts) do
+	for k, v in pairs(active_cast_bars) do
 		local tempPos = bar_template:GetPlacementPlain()
+		tempPos.posY = tempPos.posY + ((tonumber(UI.get("Bars", "BarsHeight")) or 40) + 2) * (k - 1)
+		tempPos.sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300
+		WtSetPlace(v, tempPos)
+		v:Show(k <= (tonumber(UI.get("Bars", "MaxBars")) or 6))
+	end
+end
+
+local function destroyBuffBar(widget)
+	if widget == nil then return end
+	for k, v in pairs(active_buffs_bars) do
+		if (v:GetName() == widget:GetName()) then
+			table.remove(active_buffs_bars, k)
+			v:DestroyWidget()
+		end
+	end
+
+	for k, v in pairs(active_buffs_bars) do
+		local tempPos = bar_template2:GetPlacementPlain()
 		tempPos.posY = tempPos.posY + ((tonumber(UI.get("Bars", "BarsHeight")) or 40) + 2) * (k - 1)
 		tempPos.sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300
 		WtSetPlace(v, tempPos)
@@ -81,7 +106,15 @@ local function removeActiveBuffById(buffId)
 	if (info == nil) then return false end
 	if (info.castBar ~= nil) then info.castBar:FinishResizeEffect() end
 	if (info.bar ~= nil) then
-		destroyCastBar(info.bar)
+		if (UI.get("Bars", "SeparateBuffs") or false) then
+			destroyBuffBar(info.bar)
+			if (info.castBar:GetName() == "CastBar") then
+				destroyCastBar(info.bar)
+			end
+		else
+			destroyCastBar(info.bar)
+		end
+
 		active_buffs[buffId] = nil
 		return true
 	end
@@ -95,21 +128,177 @@ end
 
 local function onPlayEffectFinished(e)
 	if e.wtOwner then
-		if e.wtOwner:GetName() ~= "CastBar" then return end
+		if e.wtOwner:GetName() ~= "CastBar" and e.wtOwner:GetName() ~= "BuffBar" then return end
+
 		local bar = e.wtOwner:GetParent()
 		e.wtOwner:FinishResizeEffect()
-		if (bar ~= nil) then destroyCastBar(bar) end
+		if (bar ~= nil and e.wtOwner:GetName() == "CastBar") then destroyCastBar(bar) end
+		if (bar ~= nil and e.wtOwner:GetName() == "BuffBar") then destroyBuffBar(bar) end
 	end
+end
+
+local function addBuff(info)
+	local bar
+	bar = mainForm:CreateWidgetByDesc(bar_template2:GetWidgetDesc())
+	counter_buff = counter_buff + 1
+
+	bar:SetName("BuffBar" .. tostring(counter_buff))
+	bar:Show(#active_buffs_bars < (tonumber(UI.get("Bars", "MaxBars")) or 6))
+	table.insert(active_buffs_bars, bar)
+
+	local buffBar
+	buffBar = mainForm:CreateWidgetByDesc(mainForm:GetChildChecked("CastBar", false):GetWidgetDesc())
+	buffBar:Show(true)
+	buffBar:SetName("BuffBar")
+	bar:AddChild(buffBar)
+
+	local settingHeight = tonumber(UI.get("Bars", "BarsHeight")) or 40
+	local settingWidth = tonumber(UI.get("Bars", "BarsWidth")) or 300
+
+	local tempPos = bar_template2:GetPlacementPlain()
+	tempPos.posY = tempPos.posY + (settingHeight + 2) * (#active_buffs_bars - 1)
+	WtSetPlace(bar, tempPos)
+	WtSetPlace(buffBar,
+		{ sizeX = settingWidth, sizeY = settingHeight })
+
+	if (info.buffInfo) then
+		local objectId = info.buffInfo.objectId
+		local buffId = info.buffInfo.buffId
+
+		active_buffs[buffId] = {
+			bar = bar,
+			castBar = buffBar,
+			objectId = objectId,
+		}
+
+		if (not tracking_objects_buffs[objectId]) then
+			tracking_objects_buffs[objectId] = {
+				buffs = {
+					buffId
+				}
+			}
+
+			common.RegisterEventHandler(onBuffRemovedDetected, "EVENT_OBJECT_BUFF_REMOVED", {
+				objectId = objectId
+			})
+		else
+			table.insert(tracking_objects_buffs[objectId].buffs, buffId)
+		end
+
+		reaction_binds["BuffBar" .. tostring(counter_buff)] = objectId
+
+		if (info.target == FromWS(object.GetName(avatar.GetId()))) then
+			buffBar:SetBackgroundColor(UI.getGroupColor("MyBuffColor") or { r = 0.0, g = 0.8, b = 0.0, a = 0.5 })
+		elseif (info.alt_id and object.IsFriend(objectId) and object.IsEnemy(info.alt_id)) then
+			buffBar:SetBackgroundColor(UI.getGroupColor("EnemyBuffColor") or { r = 0.8, g = 0, b = 0, a = 0.5 })
+		else
+			buffBar:SetBackgroundColor(UI.getGroupColor("OtherBuffColor") or { r = 0.0, g = 0.6, b = 0.6, a = 0.5 })
+		end
+		WtSetPlace(buffBar, { alignX = 0, sizeX = settingWidth })
+		local castBarPlacementEnd = buffBar:GetPlacementPlain()
+		castBarPlacementEnd.sizeX = 0
+		buffBar:PlayResizeEffect(buffBar:GetPlacementPlain(), castBarPlacementEnd, info.duration,
+			EA_MONOTONOUS_INCREASE, true)
+
+		if (not UI.get("Bars", "ShowBuffCaster")) then
+			info.target = ""
+		elseif info.alt_id then
+			alt_reaction_binds["BuffBar" .. tostring(counter_buff)] = info.alt_id
+		end
+	end
+
+	if (info.mob) then
+		active_mobs[info.mob] = bar
+		reaction_binds["BuffBar" .. tostring(counter_buff)] = info.mob
+	end
+
+	if (info.customColor) then
+		buffBar:SetBackgroundColor(info.customColor)
+	end
+
+	-- if (Settings.customColorsByName and Settings.customColorsByName[castInfo.name]) then
+	-- 	castBar:SetBackgroundColor(Settings.customColorsByName[castInfo.name])
+	-- end
+
+	local spell
+	spell = mainForm:CreateWidgetByDesc(spell_template2:GetWidgetDesc())
+	WtSetPlace(spell,
+		{ sizeX = settingWidth, sizeY = settingHeight })
+
+	WtSetPlace(bar,
+		{ sizeX = settingWidth, sizeY = settingHeight })
+
+	local iconSize = settingHeight - 8
+
+	if (info.texture) then
+		spell:SetBackgroundTexture(info.texture)
+	end
+
+	bar:AddChild(spell)
+	spell:Show(true)
+
+	local castName = CreateWG("Label", "CastName", bar, true,
+		{
+			alignX = 0,
+			sizeX = settingWidth - settingHeight,
+			posX = iconSize + 6,
+			highPosX = 0,
+			alignY = 0,
+			sizeY = 20,
+			posY = 2,
+			highPosY = 0
+		})
+	castName:SetFormat(userMods.ToWString(
+		"<html><body alignx='left' aligny='bottom' fontsize='16' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>"))
+	castName:SetVal("name", info.name)
+	castName:SetClassVal("class", "ColorWhite")
+
+	local offsetTargetText = 0
+	if (info.target) then offsetTargetText = 115 end
+
+	local castUnit = CreateWG("Label", "CastUnit", bar, true,
+		{
+			alignX = 0,
+			sizeX = (tonumber(UI.get("Bars", "BarsWidth")) or 300) - iconSize - offsetTargetText,
+			posX = iconSize + 6,
+			highPosX = 0,
+			alignY = 1,
+			sizeY = 20,
+			posY = 0,
+			highPosY = 2
+		})
+	castUnit:SetFormat(userMods.ToWString(
+		"<html><body alignx='left' aligny='bottom' fontsize='13' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>"))
+	castUnit:SetVal("name", info.unit)
+	castUnit:SetClassVal("class", "ColorWhite")
+
+	local castTarget = CreateWG("Label", "CastTarget", bar, true,
+		{ alignX = 1, sizeX = 120, posX = 0, highPosX = 2, alignY = 0, sizeY = 20, posY = 18, highPosY = 0 })
+	castTarget:SetFormat(userMods.ToWString(
+		"<html><body alignx='right' aligny='bottom' fontsize='12' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>"))
+	castTarget:SetVal("name", info.target)
+	castTarget:SetClassVal("class", "RelicCursed")
+
+	bar:AddChild(castName)
+	bar:AddChild(castUnit)
+	bar:AddChild(castTarget)
+
+	WtSetPlace(spell,
+		{ alignX = 0, posX = 4, highPosX = 0, alignY = 0, posY = 4, highPosY = 0, sizeX = iconSize, sizeY = iconSize })
+
+	bar:SetTransparentInput(not (UI.get("Interaction", "IsClickable") or false))
+	buffBar:SetTransparentInput(true)
+	spell:SetTransparentInput(true)
 end
 
 local function addCast(castInfo)
 	local bar
 	bar = mainForm:CreateWidgetByDesc(bar_template:GetWidgetDesc())
 	counter = counter + 1
-	bar:SetName("CastBar" .. tostring(counter))
-	bar:Show(#active_casts < (tonumber(UI.get("Bars", "MaxBars")) or 6))
 
-	table.insert(active_casts, bar)
+	bar:SetName("CastBar" .. tostring(counter))
+	bar:Show(#active_cast_bars < (tonumber(UI.get("Bars", "MaxBars")) or 6))
+	table.insert(active_cast_bars, bar)
 
 	local castBar
 	castBar = mainForm:CreateWidgetByDesc(mainForm:GetChildChecked("CastBar", false):GetWidgetDesc())
@@ -120,7 +309,7 @@ local function addCast(castInfo)
 	local settingWidth = tonumber(UI.get("Bars", "BarsWidth")) or 300
 
 	local tempPos = bar_template:GetPlacementPlain()
-	tempPos.posY = tempPos.posY + (settingHeight + 2) * (#active_casts - 1)
+	tempPos.posY = tempPos.posY + (settingHeight + 2) * (#active_cast_bars - 1)
 	WtSetPlace(bar, tempPos)
 	WtSetPlace(castBar,
 		{ sizeX = settingWidth, sizeY = settingHeight })
@@ -231,38 +420,43 @@ local function addCast(castInfo)
 		})
 	castName:SetFormat(userMods.ToWString(
 		"<html><body alignx='left' aligny='bottom' fontsize='16' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>"))
-	castName:SetVal("name", castInfo.name)
+	castName:SetVal("name", castInfo.name or "")
 	castName:SetClassVal("class", "ColorWhite")
+	bar:AddChild(castName)
 
 	local offsetTargetText = 0
-	if (castInfo.target) then offsetTargetText = 115 end
+	if (castInfo.target) then
+		offsetTargetText = 115
 
-	local castUnit = CreateWG("Label", "CastUnit", bar, true,
-		{
-			alignX = 0,
-			sizeX = (tonumber(UI.get("Bars", "BarsWidth")) or 300) - iconSize - offsetTargetText,
-			posX = iconSize + 6,
-			highPosX = 0,
-			alignY = 1,
-			sizeY = 20,
-			posY = 0,
-			highPosY = 2
-		})
-	castUnit:SetFormat(userMods.ToWString(
-		"<html><body alignx='left' aligny='bottom' fontsize='13' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>"))
-	castUnit:SetVal("name", castInfo.unit)
-	castUnit:SetClassVal("class", "ColorWhite")
+		local castTarget = CreateWG("Label", "CastTarget", bar, true,
+			{ alignX = 1, sizeX = 120, posX = 0, highPosX = 2, alignY = 0, sizeY = 20, posY = 18, highPosY = 0 })
+		castTarget:SetFormat(userMods.ToWString(
+			"<html><body alignx='right' aligny='bottom' fontsize='12' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>"))
+		castTarget:SetVal("name", castInfo.target)
+		castTarget:SetClassVal("class", "RelicCursed")
 
-	local castTarget = CreateWG("Label", "CastTarget", bar, true,
-		{ alignX = 1, sizeX = 120, posX = 0, highPosX = 2, alignY = 0, sizeY = 20, posY = 18, highPosY = 0 })
-	castTarget:SetFormat(userMods.ToWString(
-		"<html><body alignx='right' aligny='bottom' fontsize='12' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>"))
-	castTarget:SetVal("name", castInfo.target)
-	castTarget:SetClassVal("class", "RelicCursed")
+		bar:AddChild(castTarget)
+	end
 
-	bar:AddChild(castName)
-	bar:AddChild(castUnit)
-	bar:AddChild(castTarget)
+	if (castInfo.unit) then
+		local castUnit = CreateWG("Label", "CastUnit", bar, true,
+			{
+				alignX = 0,
+				sizeX = (tonumber(UI.get("Bars", "BarsWidth")) or 300) - iconSize - offsetTargetText,
+				posX = iconSize + 6,
+				highPosX = 0,
+				alignY = 1,
+				sizeY = 20,
+				posY = 0,
+				highPosY = 2
+			})
+		castUnit:SetFormat(userMods.ToWString(
+			"<html><body alignx='left' aligny='bottom' fontsize='13' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>"))
+		castUnit:SetVal("name", castInfo.unit)
+		castUnit:SetClassVal("class", "ColorWhite")
+
+		bar:AddChild(castUnit)
+	end
 
 	WtSetPlace(spell,
 		{ alignX = 0, posX = 4, highPosX = 0, alignY = 0, posY = 4, highPosY = 0, sizeX = iconSize, sizeY = iconSize })
@@ -389,7 +583,11 @@ local function onBuff(p)
 				UI.registerTexture(FromWS(info.name), {
 					buffId = info.buffId,
 				})
-				addCast(castInfo)
+				if (UI.get("Bars", "SeparateBuffs") or false) then
+					addBuff(castInfo)
+				else
+					addCast(castInfo)
+				end
 			end
 		end
 	end
@@ -456,7 +654,8 @@ local function onCastFinish(p)
 	if (not widget) then return end
 
 	destroyCastBar(widget)
-	active_mobs[p.id.buffId] = nil
+
+	active_mobs[p.id] = nil
 end
 
 local function onSlash(p)
@@ -491,30 +690,63 @@ local function onSlash(p)
 end
 
 function ToggleDnd()
-	if (bar_template:IsVisibleEx()) then
+	local info1 = bar_template:GetChildUnchecked("Info", false)
+	local info2 = bar_template2:GetChildUnchecked("Info", false)
+	if (bar_template:IsVisibleEx() and bar_template2:IsVisibleEx()) then
 		DnD.Enable(bar_template, false)
+		DnD.Enable(bar_template2, false)
 		UI.dnd(false)
+
 		bar_template:Show(false)
 		bar_template:SetTransparentInput(true)
-		spell_template:SetTransparentInput(true)
+		bar_template2:Show(false)
+		bar_template2:SetTransparentInput(true)
 
-		for k, v in pairs(active_casts) do
+		spell_template:SetTransparentInput(true)
+		spell_template2:SetTransparentInput(true)
+
+		local settingHeight = tonumber(UI.get("Bars", "BarsHeight")) or 40
+		local settingWidth = tonumber(UI.get("Bars", "BarsWidth")) or 300
+
+		for k, v in pairs(active_cast_bars) do
 			local tempPos = bar_template:GetPlacementPlain()
 			tempPos.posY = tempPos.posY + ((tonumber(UI.get("Bars", "BarsHeight")) or 40) + 2) * (k - 1)
 			WtSetPlace(v, tempPos)
 			v:Show(k <= (tonumber(UI.get("Bars", "MaxBars")) or 6))
 		end
 
+		if (info1) then
+			info1:Show(false)
+		end
+
+		if (info2) then
+			info2:Show(false)
+		end
+
 		Log("Drag & Drop - Off.")
 	else
 		DnD.Enable(bar_template, true)
+		DnD.Enable(bar_template2, true)
 		UI.dnd(true)
+
 		bar_template:Show(true)
 		bar_template:SetTransparentInput(false)
-		spell_template:SetTransparentInput(false)
+		bar_template2:Show(true)
+		bar_template2:SetTransparentInput(false)
 
-		for k, v in pairs(active_casts) do
+		spell_template:SetTransparentInput(false)
+		spell_template2:SetTransparentInput(false)
+
+		for k, v in pairs(active_cast_bars) do
 			v:Show(false)
+		end
+
+		if (info1) then
+			info1:Show(true)
+		end
+
+		if (info2) then
+			info2:Show(true)
 		end
 
 		Log("Drag & Drop - On.")
@@ -555,7 +787,7 @@ local function onCfgRight()
 end
 
 local function isClickableCallback(value)
-	for k, v in pairs(active_casts) do
+	for k, v in pairs(active_cast_bars) do
 		v:SetTransparentInput(not value)
 	end
 
@@ -717,6 +949,7 @@ local function setupUI()
 		UI.createList("BarsHeight", { 40 }, 1, false),
 		UI.createCheckBox("ShowBuffCaster", true),
 		UI.createCheckBox("ShowCastTarget", true),
+		UI.createCheckBox("SeparateBuffs", false),
 	})
 
 	UI.addGroup("Interaction", {
@@ -925,17 +1158,72 @@ function Init()
 	common.RegisterEventHandler(onAOPanelChange, "EVENT_ADDON_LOAD_STATE_CHANGED")
 
 	bar_template:AddChild(spell_template)
+	bar_template2:AddChild(spell_template2)
+
 	spell_template:Show(true)
+	spell_template2:Show(true)
+
 	bar_template:SetTransparentInput(true)
+	bar_template2:SetTransparentInput(true)
+
 	spell_template:SetTransparentInput(true)
+	spell_template2:SetTransparentInput(true)
+
+	local settingHeight = tonumber(UI.get("Bars", "BarsHeight")) or 40
+	local settingWidth = tonumber(UI.get("Bars", "BarsWidth")) or 300
 
 	local iconSize = (tonumber(UI.get("Bars", "BarsHeight")) or 40) - 8
 	WtSetPlace(bar_template,
-		{ sizeX = tonumber(UI.get("Bars", "BarsWidth")) or 300, sizeY = tonumber(UI.get("Bars", "BarsHeight")) or 40 })
+		{ sizeX = settingWidth, sizeY = settingHeight })
+
+	WtSetPlace(bar_template2,
+		{ sizeX = settingWidth, sizeY = settingHeight })
+
 	WtSetPlace(spell_template,
 		{ alignX = 0, posX = 4, highPosX = 0, alignY = 0, posY = 4, highPosY = 0, sizeX = iconSize, sizeY = iconSize })
 
+	WtSetPlace(spell_template2,
+		{ alignX = 0, posX = 4, highPosX = 0, alignY = 0, posY = 4, highPosY = 0, sizeX = iconSize, sizeY = iconSize })
+
+	local bar1Info = CreateWG("Label", "Info", bar_template, true,
+		{
+			alignX = 0,
+			sizeX = settingWidth - settingHeight,
+			posX = (settingHeight - 8) + 6,
+			highPosX = 0,
+			alignY = 0,
+			sizeY = 20,
+			posY = 2,
+			highPosY = 0
+		})
+	bar1Info:SetFormat(userMods.ToWString(
+		"<html><body alignx='left' aligny='bottom' fontsize='16' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>"))
+	bar1Info:SetVal("name", "All / Casts")
+	bar1Info:SetClassVal("class", "ColorWhite")
+	bar_template:AddChild(bar1Info)
+
+	local bar2Info = CreateWG("Label", "Info", bar_template2, true,
+		{
+			alignX = 0,
+			sizeX = settingWidth - settingHeight,
+			posX = (settingHeight - 8) + 6,
+			highPosX = 0,
+			alignY = 0,
+			sizeY = 20,
+			posY = 2,
+			highPosY = 0
+		})
+	bar2Info:SetFormat(userMods.ToWString(
+		"<html><body alignx='left' aligny='bottom' fontsize='16' outline='1' shadow='1'><rs class='class'><r name='name'/></rs></body></html>"))
+	bar2Info:SetVal("name", "Separate Buffs")
+	bar2Info:SetClassVal("class", "ColorWhite")
+	bar_template2:AddChild(bar2Info)
+	bar1Info:Show(false)
+	bar2Info:Show(false)
+
 	DnD.Init(bar_template, spell_template, true)
+	DnD.Init(bar_template2, spell_template2, true)
+
 	local cfgBtn = mainForm:GetChildChecked("ConfigButton", false)
 	DnD.Init(cfgBtn, cfgBtn, true)
 	DnD.Enable(cfgBtn, true)

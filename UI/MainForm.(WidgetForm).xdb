@@ -14,10 +14,16 @@
 		<Item href="SettingsContent/SimpleLabel/SimpleLabelPanel.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
 
 		<Item href="ConfigButton/ConfigButton.(WidgetButton).xdb#xpointer(/WidgetButton)" />
+
 		<Item href="CastBar/ButtonBar.(WidgetButton).xdb#xpointer(/WidgetButton)" />
+		<Item href="CastBar/ButtonBar2.(WidgetButton).xdb#xpointer(/WidgetButton)" />
+
 		<Item href="CastBar/CastBar.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
 		<Item href="CastBar/Label.(WidgetTextView).xdb#xpointer(/WidgetTextView)" />
+		
 		<Item href="CastBar/IconSpell.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
+		<Item href="CastBar/IconSpell2.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
+
 
 		<Item href="SettingsFrame/BackFrame/BackFrame.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />
 		<Item href="SettingsFrame/SettingsMain.(WidgetPanel).xdb#xpointer(/WidgetPanel)" />

@@ -26,7 +26,7 @@ LOCALES = {
         ["SETTING_BarsHeight"] = "Высота панелей",
         ["SETTING_ShowBuffCaster"] = "Показывать кастера баффа",
         ["SETTING_ShowCastTarget"] = "Показывать цель каста моба",
-
+        ["SETTING_SeparateBuffs"] = "Отображать баффы на отдельной панели",
         ["GROUP_Interaction"] = "Интерактивность",
         ["SETTING_IsClickable"] = "Кликабельность",
         ["SETTING_EnableRightClick"] = "Выделение цели каста / кастера правой кнопкой мышки",
