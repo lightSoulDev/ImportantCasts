@@ -684,7 +684,7 @@ end
 local function addRecommendedUnits()
 	local recomendedUnits = {
 		"Демонический маяк",
-		"Песчанный червь",
+		"Песчаный червь",
 		"Охотник Свалки",
 		"Охотница Свалки"
 	}
