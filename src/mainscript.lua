@@ -179,7 +179,7 @@ local function addCast(castInfo)
 		local castBarPlacementEnd = castBar:GetPlacementPlain()
 		castBarPlacementEnd.sizeX = settingWidth
 		castBar:PlayResizeEffect(castBar:GetPlacementPlain(), castBarPlacementEnd, castInfo.duration,
-		EA_MONOTONOUS_INCREASE, true)
+			EA_MONOTONOUS_INCREASE, true)
 
 		if (not UI.get("Bars", "ShowCastTarget")) then
 			castInfo.target = ""
@@ -641,8 +641,8 @@ end
 
 local function addRecommendedBuffs()
 	UI.groupPush("BuffsSettings",
-		UI.createItemSetting("*пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ*", {
-			iconName = "*пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ*",
+		UI.createItemSetting("*Длительный контроль*", {
+			iconName = "*Длительный контроль*",
 			checkboxes = {
 				{
 					name = "self",
@@ -683,10 +683,10 @@ end
 
 local function addRecommendedUnits()
 	local recomendedUnits = {
-		"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ",
-		"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ",
-		"пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ",
-		"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ"
+		"Демонический маяк",
+		"Песчаный червь",
+		"Охотник Свалки",
+		"Охотница Свалки"
 	}
 
 	for _, unit in pairs(recomendedUnits) do
