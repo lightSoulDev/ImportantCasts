@@ -541,13 +541,15 @@ local function onSliderChange(params)
         local descPanel = params.widget:GetParent():GetParent()
         local label = descPanel:GetChildChecked("SliderPanelBarText", true)
         local value = params.widget:GetPos()
-        label:SetVal("text", tostring(value))
+
+        label:SetVal("text", tostring(value + (UI_SETTINGS[params.sender].offset or 0)))
 
         UI_SETTINGS[params.sender].value = value
         saveSettings()
 
         if (CALLBACKS[params.sender] and type(CALLBACKS[params.sender]) == "function") then
-            CALLBACKS[params.sender](UI_SETTINGS[params.sender].value, params.sender)
+            CALLBACKS[params.sender](UI_SETTINGS[params.sender].value + (UI_SETTINGS[params.sender].offset or 0),
+                params.sender)
         end
 
         -- if ends with _r, _g, _b, _a then update color preview
@@ -582,7 +584,7 @@ end
 
 local function onMainAccept()
     saveSettings()
-    UI.toggle()
+    -- UI.toggle()
 end
 
 local function onMainRestore()
@@ -596,7 +598,9 @@ local function onMainRestore()
         if (TABS and not tabContainsGroup(TABS, CURRENT_TAB, split_string[1])) then goto continue end
 
         if (v and v.type) then
-            if (v.type == "Checkbox" or v.type == "Slider" or v.type == "Input") then
+            if (v.type == "Checkbox" or v.type == "Input") then
+                UI_SETTINGS[k].value = v.defaultValue
+            elseif (v.type == "Slider") then
                 UI_SETTINGS[k].value = v.defaultValue
             elseif (v.type == "List") then
                 UI_SETTINGS[k].index = v.defaultIndex
@@ -708,6 +712,9 @@ function UI.get(group, name)
     local id = group .. "_" .. name
 
     if (UI_SETTINGS[id]) then
+        if (UI_SETTINGS[id].offset) then
+            return UI_SETTINGS[id].value + UI_SETTINGS[id].offset
+        end
         return UI_SETTINGS[id].value
     end
 
@@ -746,7 +753,7 @@ function UI.getGroupColor(group)
         }
     end
 
-    return { r = 0.0, g = 0.0, b = 0.0, a = 0.0 }
+    return nil
 end
 
 function UI.getClassList(canBeNil)
@@ -941,6 +948,8 @@ function UI.createList(name, options, default, cycle)
 end
 
 function UI.createSlider(name, options, default)
+    if (options.offset == nil) then options.offset = 0 end
+
     local label = GetLocaleText("SETTING_" .. name)
     local temp = {
         name = name,
@@ -949,16 +958,17 @@ function UI.createSlider(name, options, default)
         params = {
             options = {
                 stepsCount = options.stepsCount or 10,
-                width = options.width or 212
+                width = options.width or 212,
+                offset = options.offset,
             },
         }
     }
 
     if (default == nil) then default = 0 end
-    if (default > options.stepsCount) then default = options.stepsCount end
+    if (default - options.offset > options.stepsCount) then default = options.stepsCount end
 
-    temp.params.value = default
-    temp.params.defaultValue = default
+    temp.params.value = default - options.offset
+    temp.params.defaultValue = default - options.offset
 
     return temp
 end
@@ -1198,6 +1208,8 @@ function UI.render()
         active_btn:Show(false)
     end
 
+    ACTIVE_BUTTONS = {}
+
     local tabSettings = getTab(TABS, CURRENT_TAB)
     if (tabSettings) then
         if (tabSettings.buttons) then
@@ -1221,6 +1233,7 @@ function UI.render()
                         button:SetVal("label", ToWS(GetLocaleText("Button" .. (v))))
 
                         WtSetPlace(button, { alignX = 1, highPosX = (45 + (i - 1) * 115) })
+
                         table.insert(ACTIVE_BUTTONS, button)
                     end
                 end
@@ -1243,8 +1256,20 @@ function UI.render()
         local frameH = ((#settings) * 45) + 30
         local extraPadding = 0
 
-        local groupFrame = CreateWG("BackFrame", "BG", mainForm, true,
-            { alignX = 3, posX = 0, highPosX = 0, alignY = 0, sizeY = frameH })
+        local groupFrameDest = mainForm:GetChildUnchecked(grouplabel, false)
+        local groupFrame = nil
+        if (groupFrameDest) then
+            groupFrame = groupFrameDest
+            for k, v in pairs(groupFrame:GetNamedChildren()) do
+                if (v ~= nil and v:GetName() ~= "GroupHeader") then
+                    v:DestroyWidget()
+                end
+            end
+        else
+            groupFrame = CreateWG("BackFrame", grouplabel, mainForm, true,
+                { alignX = 3, posX = 0, highPosX = 0, alignY = 0, sizeY = frameH })
+        end
+
         groupFrame:Show(true)
 
         local header = groupFrame:GetChildChecked("GroupHeader", false):GetChildChecked("HeaderText", false)
@@ -1627,11 +1652,16 @@ function UI.render()
                     discreteSlider:SetName(id)
 
                     if (not UI_SETTINGS[id]) then
-                        UI_SETTINGS[id] = { type = v.type, value = v.params.value, defaultValue = v.params.defaultValue }
+                        UI_SETTINGS[id] = {
+                            type = v.type,
+                            value = v.params.value,
+                            defaultValue = v.params.defaultValue,
+                            offset = v.params.options.offset or 0
+                        }
                     end
 
                     discreteSlider:SetPos(UI_SETTINGS[id].value)
-                    valueLabel:SetVal("text", tostring(UI_SETTINGS[id].value))
+                    valueLabel:SetVal("text", tostring(UI_SETTINGS[id].value + UI_SETTINGS[id].offset))
                     -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
                     -- =-                  I N P U T                  -=
                     -- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
