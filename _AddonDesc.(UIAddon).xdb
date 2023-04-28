@@ -4,15 +4,15 @@
 	<AutoStart>true</AutoStart>
 	<ScriptFileRefs>
 	    <Item href="/Mods/SampleCommon/SampleAddonBase.lua"/>
-		<Item href="compiled/locale.luac"/>
+		<Item href="src/locale.lua"/>
 
-		<Item href="compiled/Logger.luac"/>
-		<Item href="compiled/Utils.luac"/>
-		<Item href="compiled/DnD.luac"/>
-		<Item href="compiled/SettingsUI.luac"/>
+		<Item href="src/libs/Logger.lua"/>
+		<Item href="src/libs/Utils.lua"/>
+		<Item href="src/libs/DnD.lua"/>
+		<Item href="src/libs/SettingsUI.lua"/>
 
 		<Item href="settings.lua"/>
-		<Item href="mainscript.luac"/>
+		<Item href="src/mainscript.lua"/>
 	</ScriptFileRefs>
 	<MainFormId>Main</MainFormId>
 	<Forms>
