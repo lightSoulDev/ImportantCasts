@@ -57,10 +57,10 @@ def main(args):
     shutil.move(f"{addonName}/compiled/mainscript.luac", f"{addonName}/mainscript.luac")
 
     # open /_out/info/name.txt and remove "Dev " from the first line
-    with open(f"{addonName}/info/name.txt", "r", encoding="UTF-8") as f:
+    with open(f"{addonName}/info/name.txt", "r", encoding="UTF-16 LE") as f:
         lines = f.readlines()
     lines[0] = lines[0].replace("Dev ", "")
-    with open(f"{addonName}/info/name.txt", "w", encoding="UTF-8") as f:
+    with open(f"{addonName}/info/name.txt", "w", encoding="UTF-16 LE") as f:
         f.writelines(lines)
 
 if __name__ == "__main__":
