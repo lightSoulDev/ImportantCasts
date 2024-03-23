@@ -14,21 +14,20 @@
 		<Item href="settings.lua"/>
 		<Item href="src/mainscript.lua"/>
 	</ScriptFileRefs>
+	<Form href="UI/MainForm.(WidgetForm).xdb"/>
 	<visObjects href=""/>
 	<texts href=""/>
 	<textures href=""/>
-<addon_name>ImportantCasts</addon_name>
-<localizedNameFileRef href="info/name.txt"/>
-<localizedDescFileRef href="info/desc.txt"/>
-<texturesGroups>
-	<Item>
-		<groupName>RELATED_TEXTURES</groupName>
-		<textures href="RelatedTextures.(UIRelatedTextures).xdb#xpointer(/UIRelatedTextures)"/>
-	</Item>
-	<Item>
-		<groupName>CUSTOM_ICONS</groupName>
-		<textures href="CustomIcons.(UIRelatedTextures).xdb#xpointer(/UIRelatedTextures)"/>
-	</Item>
-</texturesGroups>
-<Form href="UI/MainForm.(WidgetForm).xdb"/>
+	<localizedNameFileRef href="info/name.txt"/>
+	<localizedDescFileRef href="info/desc.txt"/>
+	<texturesGroups>
+		<Item>
+			<groupName>RELATED_TEXTURES</groupName>
+			<textures href="RelatedTextures.(UIRelatedTextures).xdb#xpointer(/UIRelatedTextures)"/>
+		</Item>
+		<Item>
+			<groupName>CUSTOM_ICONS</groupName>
+			<textures href="CustomIcons.(UIRelatedTextures).xdb#xpointer(/UIRelatedTextures)"/>
+		</Item>
+	</texturesGroups>
 </UIAddon>
