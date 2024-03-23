@@ -292,6 +292,8 @@ local function addBuff(info)
 end
 
 local function addCast(castInfo)
+	if (castInfo.duration <= 0) then return end
+
 	local bar
 	bar = mainForm:CreateWidgetByDesc(bar_template:GetWidgetDesc())
 	counter = counter + 1
