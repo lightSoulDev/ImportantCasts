@@ -2,3 +2,4 @@ compiled/*
 mainscript.luac
 ImportantCasts/*
 *.zip
+*.pak
