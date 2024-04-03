@@ -469,7 +469,7 @@ local function addCast(castInfo)
 end
 
 local function onCast(p)
-	if (p.id and p.duration and p.name) then
+	if (p.id and object.IsExist(p.id) and p.duration and p.name) then
 		local CastsMode = UI.get("CastsSettings", "Mode")
 		local castItem = UI.getItem("CastsSettings", FromWS(p.name))
 		if (CastsMode == "HideOnly") then

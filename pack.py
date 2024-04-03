@@ -63,5 +63,19 @@ def main(args):
     with open(f"{addonName}/info/name.txt", "w", encoding="UTF-16 LE") as f:
         f.writelines(lines)
 
+    if os.path.exists("_pak/Mods/Addons"):
+        shutil.rmtree("_pak/Mods/Addons")
+
+    if os.path.exists(f"{addonName}.pak"):
+        os.remove(f"{addonName}.pak")
+    if os.path.exists(f"{addonName}.zip"):
+        os.remove(f"{addonName}.zip")
+
+    os.makedirs("_pak/Mods/Addons")
+    shutil.move(addonName, "_pak/Mods/Addons")
+    shutil.make_archive(addonName, 'zip', "_pak")
+    os.rename(f"{addonName}.zip", f"{addonName}.pak")
+    shutil.rmtree("_pak")
+
 if __name__ == "__main__":
     main(sys.argv[1:])
